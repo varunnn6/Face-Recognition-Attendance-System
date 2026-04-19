@@ -190,6 +190,12 @@ export async function getAttendanceByDateRange(startDate, endDate) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+export async function getAttendanceBySubject(subject) {
+  const q = query(collection(db, ATTENDANCE_COL), where('subject', '==', subject));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
 export async function getAttendanceStats(studentId, subject = null) {
   let records = await getAttendanceByStudent(studentId);
   if (subject) records = records.filter(r => r.subject === subject);
