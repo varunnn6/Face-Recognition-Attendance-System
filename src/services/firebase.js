@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDNqwhBsCwjU-w7KPubAYWs2CRAE-yu-2s",
@@ -15,3 +15,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// Sign in anonymously as soon as app loads — satisfies Firestore security rules
+// without requiring users to create Firebase accounts
+signInAnonymously(auth).catch(() => {});
