@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Brain, CheckCircle, AlertCircle, Play, Loader } from 'lucide-react';
-import { getStudents } from '../../services/dataService';
+import { useData } from '../../contexts/DataContext';
 
 export default function TrainModel() {
   const [training, setTraining] = useState(false);
@@ -8,7 +8,7 @@ export default function TrainModel() {
   const [status, setStatus] = useState(localStorage.getItem('faceattend_model_trained') === 'true' ? 'trained' : 'not_trained');
   const [log, setLog] = useState([]);
 
-  const students = getStudents();
+  const { students } = useData();
   const withPhotos = students.filter(s => s.photoSample === 'Yes').length;
 
   const handleTrain = () => {

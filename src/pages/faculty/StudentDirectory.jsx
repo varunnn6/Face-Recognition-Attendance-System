@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
-import { getStudents, getAttendanceByStudent, getAttendanceStats } from '../../services/dataService';
+import { useData } from '../../contexts/DataContext';
 import DataTable from '../../components/ui/DataTable';
 import AttendanceGauge from '../../components/ui/AttendanceGauge';
 import { Search, User, X } from 'lucide-react';
 
 export default function StudentDirectory() {
-  const [students] = useState(() => getStudents());
+  const { students, getAttendanceByStudent, getAttendanceStats } = useData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getActiveSessions, markStudentInSession } from '../../services/dataService';
+import { useData } from '../../contexts/DataContext';
 import { ScanFace, Clock, CheckCircle, ShieldOff, XCircle } from 'lucide-react';
 
 const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
@@ -216,34 +216,24 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
 export default function MarkAttendance() {
   const { user } = useAuth();
   const toast = useToast();
-  const [activeSessions, setActiveSessions] = useState(() => getActiveSessions());
+  const { activeSessions, markStudentInSession } = useData();
   const [selectedSession, setSelectedSession] = useState(null);
-  const [markStatus, setMarkStatus] = useState('idle'); // 'idle' | 'success'
+  const [markStatus, setMarkStatus] = useState('idle');
 
   const studentId = user?.studentData?.studentId || user?.id;
   const studentName = user?.name || 'Student';
 
-  // Refresh active sessions
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveSessions(getActiveSessions());
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Stable callback that won't change reference
-  const handleRecognized = useCallback(() => {
+  const handleRecognized = useCallback(async () => {
     if (!selectedSession) return;
-
-    const marked = markStudentInSession(selectedSession.id, studentId, user?.name);
+    const marked = await markStudentInSession(selectedSession.id, studentId, user?.name);
     if (marked) {
       setMarkStatus('success');
       toast.success('Attendance marked successfully! ✓');
     } else {
-      setMarkStatus('success'); // Still show success UI — they're already marked
+      setMarkStatus('success');
       toast.info('Already marked for this session');
     }
-  }, [selectedSession, studentId, user?.name, toast]);
+  }, [selectedSession, studentId, user?.name, toast, markStudentInSession]);
 
   const getTimeRemaining = (session) => {
     const created = new Date(session.createdAt);

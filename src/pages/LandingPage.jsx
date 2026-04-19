@@ -1,5 +1,5 @@
 import { useAuth } from '../contexts/AuthContext';
-import { getDashboardStats } from '../services/dataService';
+import { useData } from '../contexts/DataContext';
 import { Users, Camera, Brain, CalendarDays, ArrowRight, Shield, GraduationCap, User, ScanFace, Clock, BarChart3 } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -179,7 +179,8 @@ function FaceMeshIcon({ size = 140 }) {
 
 export default function LandingPage({ onLoginClick }) {
   const { isAuthenticated } = useAuth();
-  const stats = useMemo(() => getDashboardStats(), []);
+  const { getDashboardStats } = useData();
+  const stats = useMemo(() => getDashboardStats(), [getDashboardStats]);
 
   const now = new Date();
   const greeting = now.getHours() < 12 ? 'GOOD MORNING' : now.getHours() < 17 ? 'GOOD AFTERNOON' : 'GOOD EVENING';

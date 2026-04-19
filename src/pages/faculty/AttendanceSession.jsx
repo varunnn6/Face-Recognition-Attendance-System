@@ -1,61 +1,55 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getSubjects, createSession, endSession, getActiveSessions, getSessions } from '../../services/dataService';
-import { PlayCircle, StopCircle, Clock, Users, CheckCircle } from 'lucide-react';
+import { useData } from '../../contexts/DataContext';
+import { PlayCircle, StopCircle, Clock, Users } from 'lucide-react';
 
 export default function AttendanceSession() {
   const { user } = useAuth();
   const toast = useToast();
+  const { subjects, activeSessions, sessions, createSession, endSession } = useData();
+
   const [subject, setSubject] = useState('');
   const [department, setDepartment] = useState(user?.department || 'Computer');
   const [duration, setDuration] = useState(10);
-  const [activeSessions, setActiveSessions] = useState(() => getActiveSessions());
-  const [allSessions, setAllSessions] = useState(() => getSessions());
-  const [timer, setTimer] = useState(null);
+  const [tick, setTick] = useState(0); // for timer re-render
 
-  const subjects = useMemo(() => getSubjects().filter(s => s.department === user?.department || s.faculty === user?.name), [user]);
+  const mySubjects = useMemo(
+    () => subjects.filter(s => s.department === user?.department || s.faculty === user?.name),
+    [subjects, user]
+  );
 
-  // Timer for active sessions
+  // Tick every second to update timer display
   useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveSessions(getActiveSessions());
-    }, 5000);
-    return () => clearInterval(interval);
+    const id = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(id);
   }, []);
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (!subject) { toast.error('Select a subject'); return; }
-    const session = createSession({
-      subject,
-      department,
-      durationMinutes: duration,
-      facultyId: user?.id,
-      facultyName: user?.name,
-    });
-    toast.success(`Session started for ${subject} (${duration} min)`);
-    setActiveSessions(getActiveSessions());
-    setAllSessions(getSessions());
+    try {
+      await createSession({ subject, department, durationMinutes: duration, facultyId: user?.id, facultyName: user?.name });
+      toast.success(`Session started for ${subject} (${duration} min)`);
+    } catch (e) { toast.error('Failed to start session: ' + e.message); }
   };
 
-  const handleEnd = (sessionId) => {
-    endSession(sessionId);
-    toast.info('Session ended');
-    setActiveSessions(getActiveSessions());
-    setAllSessions(getSessions());
+  const handleEnd = async (sessionId) => {
+    try {
+      await endSession(sessionId);
+      toast.info('Session ended');
+    } catch (e) { toast.error('Failed to end session: ' + e.message); }
   };
 
   const getTimeRemaining = (session) => {
     const created = new Date(session.createdAt);
     const expires = new Date(created.getTime() + session.durationMinutes * 60 * 1000);
-    const now = new Date();
-    const remaining = Math.max(0, Math.floor((expires - now) / 1000));
+    const remaining = Math.max(0, Math.floor((expires - new Date()) / 1000));
     const mins = Math.floor(remaining / 60);
     const secs = remaining % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const pastSessions = allSessions.filter(s => s.status !== 'active').slice(-10).reverse();
+  const pastSessions = sessions.filter(s => s.status !== 'active').slice(-10).reverse();
 
   return (
     <div className="page fade-in">
@@ -68,15 +62,13 @@ export default function AttendanceSession() {
       <div style={{ display: 'flex', gap: 'var(--space-xl)', flexWrap: 'wrap' }}>
         {/* Create Session */}
         <div className="card-static" style={{ flex: 1, minWidth: 320, padding: 24 }}>
-          <h3 style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-dim)', marginBottom: 'var(--space-lg)' }}>
-            NEW SESSION
-          </h3>
+          <h3 style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-dim)', marginBottom: 'var(--space-lg)' }}>NEW SESSION</h3>
 
           <div className="form-group">
             <label className="label">Subject</label>
             <select className="select" value={subject} onChange={e => setSubject(e.target.value)} id="session-subject">
               <option value="">Select Subject</option>
-              {subjects.map(s => <option key={s.id} value={s.name}>{s.name} ({s.code})</option>)}
+              {mySubjects.map(s => <option key={s.id} value={s.name}>{s.name} ({s.code})</option>)}
             </select>
           </div>
 
@@ -91,13 +83,7 @@ export default function AttendanceSession() {
             <label className="label">Duration (minutes)</label>
             <div style={{ display: 'flex', gap: 8 }}>
               {[1, 5, 10, 15, 20, 30].map(d => (
-                <button
-                  key={d}
-                  className={`btn ${duration === d ? 'btn-primary' : 'btn-ghost'} btn-sm`}
-                  onClick={() => setDuration(d)}
-                >
-                  {d}m
-                </button>
+                <button key={d} className={`btn ${duration === d ? 'btn-primary' : 'btn-ghost'} btn-sm`} onClick={() => setDuration(d)}>{d}m</button>
               ))}
             </div>
           </div>
@@ -137,7 +123,7 @@ export default function AttendanceSession() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Users size={14} style={{ color: 'var(--text-muted)' }} />
-                    <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{session.markedStudents.length} marked</span>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{(session.markedStudents || []).length} marked</span>
                   </div>
                   <button className="btn btn-danger btn-sm" onClick={() => handleEnd(session.id)}>
                     <StopCircle size={14} /> End Session
@@ -147,17 +133,14 @@ export default function AttendanceSession() {
             ))
           )}
 
-          {/* Past Sessions */}
           {pastSessions.length > 0 && (
             <div style={{ marginTop: 'var(--space-xl)' }}>
-              <h3 style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-dim)', marginBottom: 'var(--space-md)' }}>
-                PAST SESSIONS
-              </h3>
+              <h3 style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-dim)', marginBottom: 'var(--space-md)' }}>PAST SESSIONS</h3>
               {pastSessions.map(s => (
                 <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-card)', borderRadius: 'var(--radius-sm)', marginBottom: 6, border: '1px solid var(--border-subtle)' }}>
                   <div>
                     <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>{s.subject}</span>
-                    <span style={{ color: 'var(--text-dim)', fontSize: '0.78rem', marginLeft: 8 }}>{s.markedStudents.length} students</span>
+                    <span style={{ color: 'var(--text-dim)', fontSize: '0.78rem', marginLeft: 8 }}>{(s.markedStudents || []).length} students</span>
                   </div>
                   <span className={`badge ${s.status === 'ended' ? 'badge-info' : 'badge-warning'}`}>{s.status}</span>
                 </div>

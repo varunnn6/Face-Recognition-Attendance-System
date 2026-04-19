@@ -1,16 +1,15 @@
 import { useState, useMemo } from 'react';
-import { getAttendance, getSubjects, getAttendanceByDateRange, getAttendanceBySubject } from '../../services/dataService';
+import { useData } from '../../contexts/DataContext';
 import Calendar from '../../components/ui/Calendar';
 import DataTable from '../../components/ui/DataTable';
 import { Download, Filter } from 'lucide-react';
 
 export default function AdminAttendance() {
-  const [attendance] = useState(() => getAttendance());
-  const [subjects] = useState(() => getSubjects());
+  const { attendance, subjects } = useData();
   const [selectedSubject, setSelectedSubject] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [view, setView] = useState('calendar'); // 'calendar' | 'table'
+  const [view, setView] = useState('calendar');
 
   const filteredData = useMemo(() => {
     let data = attendance;

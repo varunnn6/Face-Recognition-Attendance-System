@@ -1,17 +1,17 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getDashboardStats, getStudents, getAttendance } from '../../services/dataService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useData } from '../../contexts/DataContext';
 import { Users, Camera, Brain, CalendarDays, ArrowRight, TrendingUp, BookOpen } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const { students, loading, getDashboardStats } = useData();
   const navigate = useNavigate();
-  const stats = useMemo(() => getDashboardStats(), []);
-  const students = useMemo(() => getStudents(), []);
 
+  const stats = getDashboardStats();
   const now = new Date();
   const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
+  const recentStudents = students.slice(-5).reverse();
 
   const quickActions = [
     { title: 'Add Student', desc: 'Register new students and capture photographs', icon: Users, color: 'var(--accent-primary)', path: '/admin/students' },
@@ -20,8 +20,11 @@ export default function AdminDashboard() {
     { title: 'View Attendance', desc: 'Browse and export attendance records', icon: CalendarDays, color: 'var(--accent-info)', path: '/admin/attendance' },
   ];
 
-  // Recent students
-  const recentStudents = students.slice(-5).reverse();
+  if (loading) return (
+    <div className="page fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+      <div className="spinner spinner-lg" />
+    </div>
+  );
 
   return (
     <div className="page fade-in">
@@ -80,34 +83,25 @@ export default function AdminDashboard() {
           <h3 style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-dim)' }}>RECENT STUDENTS</h3>
           <button className="btn btn-ghost btn-sm" onClick={() => navigate('/admin/students')}>View All</button>
         </div>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Department</th>
-              <th>Course</th>
-              <th>Roll</th>
-              <th>Photo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recentStudents.map(s => (
-              <tr key={s.studentId}>
-                <td style={{ fontWeight: 600 }}>{s.studentId}</td>
-                <td>{s.name}</td>
-                <td>{s.department}</td>
-                <td>{s.course}</td>
-                <td>{s.roll}</td>
-                <td>
-                  <span className={`badge ${s.photoSample === 'Yes' ? 'badge-success' : 'badge-warning'}`}>
-                    {s.photoSample === 'Yes' ? 'Captured' : 'Pending'}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {recentStudents.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No students added yet.</p>
+        ) : (
+          <table className="data-table">
+            <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Course</th><th>Roll</th><th>Photo</th></tr></thead>
+            <tbody>
+              {recentStudents.map(s => (
+                <tr key={s.studentId}>
+                  <td style={{ fontWeight: 600 }}>{s.studentId}</td>
+                  <td>{s.name}</td>
+                  <td>{s.department}</td>
+                  <td>{s.course}</td>
+                  <td>{s.roll}</td>
+                  <td><span className={`badge ${s.photoSample === 'Yes' ? 'badge-success' : 'badge-warning'}`}>{s.photoSample === 'Yes' ? 'Captured' : 'Pending'}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
+import { useData } from '../../contexts/DataContext';
 import CameraPreview from '../../components/ui/CameraPreview';
-import { getStudents, updateStudent } from '../../services/dataService';
 import { useToast } from '../../contexts/ToastContext';
 import { Camera, Search, User, X, CheckCircle } from 'lucide-react';
 
 export default function PhotoCapture() {
   const toast = useToast();
-  const [students] = useState(() => getStudents());
+  const { students, updateStudent } = useData();
   const [selectedStudent, setSelectedStudent] = useState('');
   const [capturedPhotos, setCapturedPhotos] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getAttendanceByStudent, getSubjects } from '../../services/dataService';
+import { useData } from '../../contexts/DataContext';
 import Calendar from '../../components/ui/Calendar';
 import DataTable from '../../components/ui/DataTable';
 import AttendanceGauge from '../../components/ui/AttendanceGauge';
@@ -10,8 +10,8 @@ export default function MyAttendance() {
   const { user } = useAuth();
   const studentId = user?.studentData?.studentId || user?.id;
 
-  const [attendance] = useState(() => getAttendanceByStudent(studentId));
-  const [subjects] = useState(() => getSubjects());
+  const { subjects, getAttendanceByStudent } = useData();
+  const attendance = getAttendanceByStudent(studentId);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');

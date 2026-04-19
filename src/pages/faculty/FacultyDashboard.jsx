@@ -1,24 +1,25 @@
-import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { getStudents, getAttendance, getActiveSessions, getSubjects } from '../../services/dataService';
+import { useData } from '../../contexts/DataContext';
 import { PlayCircle, Users, CalendarDays, Search, ArrowRight, Clock } from 'lucide-react';
 
 export default function FacultyDashboard() {
   const { user } = useAuth();
+  const { students, attendance, activeSessions, subjects, loading } = useData();
   const navigate = useNavigate();
 
-  const students = useMemo(() => getStudents(), []);
-  const attendance = useMemo(() => getAttendance(), []);
-  const activeSessions = useMemo(() => getActiveSessions(), []);
-  const subjects = useMemo(() => getSubjects().filter(s => s.faculty === user?.name || s.department === user?.department), [user]);
-
+  const deptStudents = students.filter(s => s.department === user?.department);
+  const mySubjects = subjects.filter(s => s.faculty === user?.name || s.department === user?.department);
   const today = new Date().toISOString().split('T')[0];
   const todayRecords = attendance.filter(a => a.date === today);
-  const deptStudents = students.filter(s => s.department === user?.department);
-
   const now = new Date();
   const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
+
+  if (loading) return (
+    <div className="page fade-in" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 300 }}>
+      <div className="spinner spinner-lg" />
+    </div>
+  );
 
   return (
     <div className="page fade-in">
@@ -33,8 +34,8 @@ export default function FacultyDashboard() {
         {[
           { label: 'My Students', value: deptStudents.length, icon: Users, color: 'var(--accent-primary)' },
           { label: 'Active Sessions', value: activeSessions.length, icon: PlayCircle, color: activeSessions.length > 0 ? 'var(--accent-primary)' : 'var(--text-dim)' },
-          { label: 'Today\'s Records', value: todayRecords.length, icon: CalendarDays, color: 'var(--accent-info)' },
-          { label: 'My Subjects', value: subjects.length, icon: Clock, color: 'var(--accent-secondary)' },
+          { label: "Today's Records", value: todayRecords.length, icon: CalendarDays, color: 'var(--accent-info)' },
+          { label: 'My Subjects', value: mySubjects.length, icon: Clock, color: 'var(--accent-secondary)' },
         ].map((s, i) => (
           <div key={i} className="card-static" style={{ padding: '18px 22px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -78,7 +79,7 @@ export default function FacultyDashboard() {
             <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 12, background: 'var(--bg-primary)', borderRadius: 'var(--radius-sm)', marginBottom: 8 }}>
               <div>
                 <div style={{ fontWeight: 700 }}>{s.subject}</div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{s.department} • {s.durationMinutes} min • {s.markedStudents.length} marked</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{s.department} • {s.durationMinutes} min • {(s.markedStudents || []).length} marked</div>
               </div>
               <span className="badge badge-success">Active</span>
             </div>

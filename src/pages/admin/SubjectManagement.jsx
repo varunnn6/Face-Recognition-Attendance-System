@@ -1,36 +1,36 @@
 import { useState } from 'react';
-import { getSubjects, addSubject, deleteSubject, updateSubject } from '../../services/dataService';
+import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../contexts/ToastContext';
 import DataTable from '../../components/ui/DataTable';
 import { BookOpen, Plus, Trash2, Edit2, RotateCcw } from 'lucide-react';
 
 export default function SubjectManagement() {
   const toast = useToast();
-  const [subjects, setSubjects] = useState(() => getSubjects());
+  const { subjects, addSubject, updateSubject, deleteSubject } = useData();
   const [form, setForm] = useState({ name: '', code: '', department: 'Computer', semester: 'Sem-1', faculty: '' });
   const [editing, setEditing] = useState(null);
 
-  const refresh = () => setSubjects(getSubjects());
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name || !form.code) { toast.error('Name and Code are required'); return; }
-    if (editing) {
-      updateSubject(editing, form);
-      toast.success('Subject updated');
-      setEditing(null);
-    } else {
-      addSubject(form);
-      toast.success('Subject added');
-    }
-    setForm({ name: '', code: '', department: 'Computer', semester: 'Sem-1', faculty: '' });
-    refresh();
+    try {
+      if (editing) {
+        await updateSubject(editing, form);
+        toast.success('Subject updated');
+        setEditing(null);
+      } else {
+        await addSubject(form);
+        toast.success('Subject added');
+      }
+      setForm({ name: '', code: '', department: 'Computer', semester: 'Sem-1', faculty: '' });
+    } catch (e) { toast.error('Failed: ' + e.message); }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (confirm('Delete this subject?')) {
-      deleteSubject(id);
-      refresh();
-      toast.success('Subject deleted');
+      try {
+        await deleteSubject(id);
+        toast.success('Subject deleted');
+      } catch (e) { toast.error('Failed: ' + e.message); }
     }
   };
 

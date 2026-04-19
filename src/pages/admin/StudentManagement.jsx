@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
-import { getStudents, addStudent, updateStudent, deleteStudent, searchStudents } from '../../services/dataService';
+import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../contexts/ToastContext';
 import DataTable from '../../components/ui/DataTable';
-import { UserPlus, Search, Download, Trash2, Edit2, RotateCcw, AlertTriangle, X } from 'lucide-react';
+import { UserPlus, Search, Download, Trash2, Edit2, RotateCcw, AlertTriangle } from 'lucide-react';
 
 const COURSE_CONFIG = {
   'B.Tech': {
@@ -65,19 +65,22 @@ function SelectField({ label, field, options, value, onChange }) {
 
 export default function StudentManagement() {
   const toast = useToast();
-  const [students, setStudents] = useState(() => getStudents());
+  const { students, addStudent, updateStudent, deleteStudent } = useData();
   const [form, setForm] = useState({ ...EMPTY });
   const [editing, setEditing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Custom delete modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-  const refreshStudents = () => setStudents(getStudents());
+  const [saving, setSaving] = useState(false);
 
   const filteredStudents = useMemo(() => {
     if (!searchQuery.trim()) return students;
-    return searchStudents(searchQuery);
+    const q = searchQuery.toLowerCase();
+    return students.filter(s =>
+      s.name?.toLowerCase().includes(q) ||
+      s.studentId?.toLowerCase().includes(q) ||
+      s.roll?.toLowerCase().includes(q) ||
+      s.department?.toLowerCase().includes(q)
+    );
   }, [students, searchQuery]);
 
   const availableCourses = Object.keys(COURSE_CONFIG);
@@ -103,33 +106,42 @@ export default function StudentManagement() {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.studentId || !form.name) {
       toast.error('Student ID and Name are required');
       return;
     }
-    if (editing) {
-      updateStudent(form.studentId, form);
-      toast.success('Student updated successfully');
-    } else {
-      if (students.find(s => s.studentId === form.studentId)) {
-        toast.error('Student ID already exists');
-        return;
+    setSaving(true);
+    try {
+      if (editing) {
+        await updateStudent(form.studentId, form);
+        toast.success('Student updated successfully');
+      } else {
+        if (students.find(s => s.studentId === form.studentId)) {
+          toast.error('Student ID already exists');
+          return;
+        }
+        await addStudent({ ...form });
+        toast.success('Student added successfully');
       }
-      addStudent({ ...form });
-      toast.success('Student added successfully');
+      handleReset();
+    } catch (e) {
+      toast.error('Failed to save student: ' + e.message);
+    } finally {
+      setSaving(false);
     }
-    refreshStudents();
-    handleReset();
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!form.studentId) return;
-    deleteStudent(form.studentId);
-    refreshStudents();
-    handleReset();
-    setShowDeleteModal(false);
-    toast.success('Student deleted');
+    try {
+      await deleteStudent(form.studentId);
+      handleReset();
+      setShowDeleteModal(false);
+      toast.success('Student deleted');
+    } catch (e) {
+      toast.error('Failed to delete: ' + e.message);
+    }
   };
 
   const handleReset = () => { setForm({ ...EMPTY }); setEditing(false); };
@@ -218,8 +230,8 @@ export default function StudentManagement() {
             <div className="section-divider" />
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn btn-primary" onClick={handleSave}>
-                {editing ? <><Edit2 size={14} /> Update</> : <><UserPlus size={14} /> Save</>}
+              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> : editing ? <><Edit2 size={14} /> Update</> : <><UserPlus size={14} /> Save</>}
               </button>
               {editing && (
                 <button className="btn btn-danger" onClick={() => setShowDeleteModal(true)} type="button">
