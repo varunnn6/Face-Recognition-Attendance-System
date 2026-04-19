@@ -40,7 +40,6 @@ export default function Navbar({ onLoginClick }) {
       { to: '/admin', label: 'Dashboard' },
       { to: '/admin/students', label: 'Students' },
       { to: '/admin/subjects', label: 'Subjects' },
-      { to: '/admin/training', label: 'Training' },
       { to: '/admin/capture', label: 'Capture' },
       { to: '/admin/attendance', label: 'Attendance' },
     ],

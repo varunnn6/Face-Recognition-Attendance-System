@@ -267,12 +267,20 @@ export default function PhotoCapture() {
                 marginTop: 12, padding: '10px 14px',
                 background: 'rgba(0,212,170,0.08)', borderRadius: 'var(--radius-sm)',
                 border: '1px solid rgba(0,212,170,0.2)',
-                display: 'flex', alignItems: 'center', gap: 8,
+                display: 'flex', flexDirection: 'column', gap: 6,
               }}>
-                <CheckCircle size={16} style={{ color: 'var(--accent-primary)' }} />
-                <span style={{ fontSize: '0.82rem', color: 'var(--accent-primary)', fontWeight: 600 }}>
-                  100 photos captured! Ready for model training.
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <CheckCircle size={16} style={{ color: 'var(--accent-primary)' }} />
+                  <span style={{ fontSize: '0.82rem', color: 'var(--accent-primary)', fontWeight: 600 }}>
+                    100 photos captured successfully!
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 24 }}>
+                  <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2, borderColor: 'var(--accent-info)', borderTopColor: 'transparent' }} />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    AI Engine: Auto-extracting biometric vectors & updating identity model...
+                  </span>
+                </div>
               </div>
             )}
           </div>

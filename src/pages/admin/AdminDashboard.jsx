@@ -15,7 +15,7 @@ export default function AdminDashboard() {
 
   const quickActions = [
     { title: 'Add Student', desc: 'Register new students and capture photographs', icon: Users, color: 'var(--accent-primary)', path: '/admin/students' },
-    { title: 'Train Model', desc: 'Build AI model from captured face data', icon: Brain, color: 'var(--accent-secondary)', path: '/admin/training' },
+    { title: 'Manage Subjects', desc: 'Add or associate faculty to subjects', icon: Users, color: 'var(--accent-secondary)', path: '/admin/subjects' },
     { title: 'Capture Photos', desc: 'Start camera with zoom controls', icon: Camera, color: 'var(--accent-primary)', path: '/admin/capture' },
     { title: 'View Attendance', desc: 'Browse and export attendance records', icon: CalendarDays, color: 'var(--accent-info)', path: '/admin/attendance' },
   ];

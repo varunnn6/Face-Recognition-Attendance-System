@@ -15,8 +15,7 @@ const sidebarConfig = {
       { to: '/admin/subjects', icon: BookOpen, text: 'Subjects' },
     ]},
     { label: 'AI ENGINE', items: [
-      { to: '/admin/capture', icon: Camera, text: 'Photo Capture' },
-      { to: '/admin/training', icon: Brain, text: 'Train Model' },
+      { to: '/admin/capture', icon: Camera, text: 'Photo Capture' }
     ]},
     { label: 'RECORDS', items: [
       { to: '/admin/attendance', icon: CalendarDays, text: 'Attendance' },

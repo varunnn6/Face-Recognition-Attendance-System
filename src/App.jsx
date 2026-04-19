@@ -17,7 +17,6 @@ import ContactPage from './pages/ContactPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import StudentManagement from './pages/admin/StudentManagement';
 import SubjectManagement from './pages/admin/SubjectManagement';
-import TrainModel from './pages/admin/TrainModel';
 import PhotoCapture from './pages/admin/PhotoCapture';
 import AdminAttendance from './pages/admin/AdminAttendance';
 
@@ -50,7 +49,6 @@ function App() {
               <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/students" element={<ProtectedRoute allowedRoles={['admin']}><StudentManagement /></ProtectedRoute>} />
               <Route path="/admin/subjects" element={<ProtectedRoute allowedRoles={['admin']}><SubjectManagement /></ProtectedRoute>} />
-              <Route path="/admin/training" element={<ProtectedRoute allowedRoles={['admin']}><TrainModel /></ProtectedRoute>} />
               <Route path="/admin/capture" element={<ProtectedRoute allowedRoles={['admin']}><PhotoCapture /></ProtectedRoute>} />
               <Route path="/admin/attendance" element={<ProtectedRoute allowedRoles={['admin']}><AdminAttendance /></ProtectedRoute>} />
 
