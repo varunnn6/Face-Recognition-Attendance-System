@@ -43,11 +43,11 @@ const EMPTY = {
 };
 
 // Defined OUTSIDE the component to prevent re-creation on every render
-function Field({ label, field, type = 'text', value, onChange }) {
+function Field({ label, field, type = 'text', value, onChange, disabled = false }) {
   return (
     <div className="form-group" style={{ flex: 1, minWidth: 150 }}>
       <label className="label">{label}</label>
-      <input className="input" type={type} value={value || ''} onChange={e => onChange(field, e.target.value)} />
+      <input className="input" type={type} value={value || ''} onChange={e => onChange(field, e.target.value)} disabled={disabled} />
     </div>
   );
 }
@@ -207,7 +207,7 @@ export default function StudentManagement() {
 
             <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent-primary)', marginBottom: 8 }}>STUDENT INFO</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <Field label="Student ID" field="studentId" value={form.studentId} onChange={handleChange} />
+              <Field label="Student ID" field="studentId" value={form.studentId} onChange={handleChange} disabled={editing} />
               <Field label="Name" field="name" value={form.name} onChange={handleChange} />
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
