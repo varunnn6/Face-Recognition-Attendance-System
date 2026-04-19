@@ -1,10 +1,17 @@
-// Data Service — localStorage-backed CRUD for students, subjects, attendance, streams
+// Data Service — Firebase Firestore-backed CRUD for students, subjects, attendance, streams
+import {
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
+  query, where, orderBy, onSnapshot, serverTimestamp, Timestamp
+} from 'firebase/firestore';
+import { db } from './firebase';
 
-const STUDENTS_KEY = 'faceattend_students';
-const SUBJECTS_KEY = 'faceattend_subjects';
-const ATTENDANCE_KEY = 'faceattend_attendance';
-const STREAMS_KEY = 'faceattend_streams';
-const SESSIONS_KEY = 'faceattend_sessions';
+// ============= COLLECTION NAMES =============
+const STUDENTS_COL = 'students';
+const SUBJECTS_COL = 'subjects';
+const STREAMS_COL = 'streams';
+const ATTENDANCE_COL = 'attendance';
+const SESSIONS_COL = 'sessions';
+const SETTINGS_COL = 'settings';
 
 // ============= SEED DATA =============
 const SEED_STUDENTS = [
@@ -32,173 +39,159 @@ const SEED_STREAMS = [
   { id: 'STR004', name: 'MCA', departments: ['Computer', 'IT'], years: 2, semesters: 4 },
 ];
 
-function generateAttendanceSeed() {
-  const records = [];
-  const students = SEED_STUDENTS;
-  const subjects = ['Data Structures', 'Database Systems', 'Operating Systems'];
-  const statuses = ['Present', 'Present', 'Present', 'Present', 'Absent']; // 80% present rate
+// ============= INITIALIZATION =============
+export async function initializeData() {
+  // Check if already seeded
+  const settingsRef = doc(db, SETTINGS_COL, 'init');
+  const settingsSnap = await getDoc(settingsRef);
+  if (settingsSnap.exists() && settingsSnap.data().seeded) return;
 
-  // Generate last 30 days of attendance
-  for (let d = 30; d >= 0; d--) {
+  // Seed students
+  for (const student of SEED_STUDENTS) {
+    await setDoc(doc(db, STUDENTS_COL, student.studentId), student);
+  }
+  // Seed subjects
+  for (const subject of SEED_SUBJECTS) {
+    await setDoc(doc(db, SUBJECTS_COL, subject.id), subject);
+  }
+  // Seed streams
+  for (const stream of SEED_STREAMS) {
+    await setDoc(doc(db, STREAMS_COL, stream.id), stream);
+  }
+  // Seed sample attendance (last 5 days only to keep it lightweight)
+  const subjects = ['Data Structures', 'Database Systems', 'Operating Systems'];
+  const statuses = ['Present', 'Present', 'Present', 'Present', 'Absent'];
+  for (let d = 5; d >= 1; d--) {
     const date = new Date();
     date.setDate(date.getDate() - d);
-    if (date.getDay() === 0 || date.getDay() === 6) continue; // Skip weekends
-
-    for (const student of students) {
+    if (date.getDay() === 0 || date.getDay() === 6) continue;
+    const dateStr = date.toISOString().split('T')[0];
+    for (const student of SEED_STUDENTS.filter(s => s.department === 'Computer')) {
       for (const subject of subjects) {
-        if (student.department !== 'Computer') continue;
         const status = statuses[Math.floor(Math.random() * statuses.length)];
-        records.push({
-          id: `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-          studentId: student.studentId,
-          studentName: student.name,
-          roll: student.roll,
-          department: student.department,
-          subject,
-          date: date.toISOString().split('T')[0],
-          time: `${9 + Math.floor(Math.random() * 6)}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`,
-          status,
-          markedBy: 'system',
+        await addDoc(collection(db, ATTENDANCE_COL), {
+          studentId: student.studentId, studentName: student.name,
+          roll: student.roll, department: student.department,
+          subject, date: dateStr, status, markedBy: 'system',
+          time: `${9 + Math.floor(Math.random() * 6)}:00`,
+          createdAt: serverTimestamp(),
         });
       }
     }
   }
-  return records;
-}
 
-function init(key, seedData) {
-  if (!localStorage.getItem(key)) {
-    const data = typeof seedData === 'function' ? seedData() : seedData;
-    localStorage.setItem(key, JSON.stringify(data));
-  }
-}
-
-function getAll(key) {
-  return JSON.parse(localStorage.getItem(key) || '[]');
-}
-
-function saveAll(key, data) {
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
-// Initialize all data stores
-export function initializeData() {
-  init(STUDENTS_KEY, SEED_STUDENTS);
-  init(SUBJECTS_KEY, SEED_SUBJECTS);
-  init(STREAMS_KEY, SEED_STREAMS);
-  init(ATTENDANCE_KEY, generateAttendanceSeed);
-  init(SESSIONS_KEY, []);
+  await setDoc(settingsRef, { seeded: true, seededAt: serverTimestamp() });
 }
 
 // ============= STUDENTS =============
-export function getStudents() {
-  return getAll(STUDENTS_KEY);
+export async function getStudents() {
+  const snap = await getDocs(collection(db, STUDENTS_COL));
+  return snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
 }
 
-export function addStudent(student) {
-  const students = getStudents();
-  students.push(student);
-  saveAll(STUDENTS_KEY, students);
+export async function addStudent(student) {
+  await setDoc(doc(db, STUDENTS_COL, student.studentId), { ...student, createdAt: serverTimestamp() });
   return student;
 }
 
-export function updateStudent(studentId, data) {
-  const students = getStudents();
-  const idx = students.findIndex(s => s.studentId === studentId);
-  if (idx !== -1) { students[idx] = { ...students[idx], ...data }; saveAll(STUDENTS_KEY, students); }
-  return students[idx];
+export async function updateStudent(studentId, data) {
+  await updateDoc(doc(db, STUDENTS_COL, studentId), { ...data, updatedAt: serverTimestamp() });
 }
 
-export function deleteStudent(studentId) {
-  const students = getStudents().filter(s => s.studentId !== studentId);
-  saveAll(STUDENTS_KEY, students);
+export async function deleteStudent(studentId) {
+  await deleteDoc(doc(db, STUDENTS_COL, studentId));
 }
 
-export function searchStudents(query) {
-  const q = query.toLowerCase();
-  return getStudents().filter(s =>
-    s.name.toLowerCase().includes(q) ||
-    s.studentId.toLowerCase().includes(q) ||
-    s.roll.toLowerCase().includes(q) ||
-    s.department.toLowerCase().includes(q)
+export async function searchStudents(queryStr) {
+  const all = await getStudents();
+  const q = queryStr.toLowerCase();
+  return all.filter(s =>
+    s.name?.toLowerCase().includes(q) ||
+    s.studentId?.toLowerCase().includes(q) ||
+    s.roll?.toLowerCase().includes(q) ||
+    s.department?.toLowerCase().includes(q)
   );
 }
 
 // ============= SUBJECTS =============
-export function getSubjects() {
-  return getAll(SUBJECTS_KEY);
+export async function getSubjects() {
+  const snap = await getDocs(collection(db, SUBJECTS_COL));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export function addSubject(subject) {
-  const subjects = getSubjects();
-  subjects.push({ ...subject, id: `SUB${Date.now()}` });
-  saveAll(SUBJECTS_KEY, subjects);
+export async function addSubject(subject) {
+  const id = `SUB${Date.now()}`;
+  await setDoc(doc(db, SUBJECTS_COL, id), { ...subject, id, createdAt: serverTimestamp() });
 }
 
-export function updateSubject(id, data) {
-  const subjects = getSubjects();
-  const idx = subjects.findIndex(s => s.id === id);
-  if (idx !== -1) { subjects[idx] = { ...subjects[idx], ...data }; saveAll(SUBJECTS_KEY, subjects); }
+export async function updateSubject(id, data) {
+  await updateDoc(doc(db, SUBJECTS_COL, id), { ...data, updatedAt: serverTimestamp() });
 }
 
-export function deleteSubject(id) {
-  saveAll(SUBJECTS_KEY, getSubjects().filter(s => s.id !== id));
+export async function deleteSubject(id) {
+  await deleteDoc(doc(db, SUBJECTS_COL, id));
 }
 
 // ============= STREAMS =============
-export function getStreams() {
-  return getAll(STREAMS_KEY);
+export async function getStreams() {
+  const snap = await getDocs(collection(db, STREAMS_COL));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export function addStream(stream) {
-  const streams = getStreams();
-  streams.push({ ...stream, id: `STR${Date.now()}` });
-  saveAll(STREAMS_KEY, streams);
+export async function addStream(stream) {
+  const id = `STR${Date.now()}`;
+  await setDoc(doc(db, STREAMS_COL, id), { ...stream, id, createdAt: serverTimestamp() });
 }
 
-export function deleteStream(id) {
-  saveAll(STREAMS_KEY, getStreams().filter(s => s.id !== id));
+export async function deleteStream(id) {
+  await deleteDoc(doc(db, STREAMS_COL, id));
 }
 
-export function getDepartments() {
-  const streams = getStreams();
+export async function getDepartments() {
+  const streams = await getStreams();
   const depts = new Set();
-  streams.forEach(s => s.departments.forEach(d => depts.add(d)));
+  streams.forEach(s => (s.departments || []).forEach(d => depts.add(d)));
   return Array.from(depts);
 }
 
 // ============= ATTENDANCE =============
-export function getAttendance() {
-  return getAll(ATTENDANCE_KEY);
+export async function getAttendance() {
+  const snap = await getDocs(collection(db, ATTENDANCE_COL));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export function addAttendanceRecord(record) {
-  const attendance = getAttendance();
-  attendance.push({
+export async function addAttendanceRecord(record) {
+  const docRef = await addDoc(collection(db, ATTENDANCE_COL), {
     ...record,
-    id: `ATT-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+    createdAt: serverTimestamp(),
   });
-  saveAll(ATTENDANCE_KEY, attendance);
+  return { id: docRef.id, ...record };
 }
 
-export function getAttendanceByStudent(studentId) {
-  return getAttendance().filter(a => a.studentId === studentId);
+export async function getAttendanceByStudent(studentId) {
+  const q = query(collection(db, ATTENDANCE_COL), where('studentId', '==', studentId));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export function getAttendanceByDate(date) {
-  return getAttendance().filter(a => a.date === date);
+export async function getAttendanceByDate(date) {
+  const q = query(collection(db, ATTENDANCE_COL), where('date', '==', date));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export function getAttendanceByDateRange(startDate, endDate) {
-  return getAttendance().filter(a => a.date >= startDate && a.date <= endDate);
+export async function getAttendanceByDateRange(startDate, endDate) {
+  const q = query(
+    collection(db, ATTENDANCE_COL),
+    where('date', '>=', startDate),
+    where('date', '<=', endDate)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export function getAttendanceBySubject(subject) {
-  return getAttendance().filter(a => a.subject === subject);
-}
-
-export function getAttendanceStats(studentId, subject = null) {
-  let records = getAttendanceByStudent(studentId);
+export async function getAttendanceStats(studentId, subject = null) {
+  let records = await getAttendanceByStudent(studentId);
   if (subject) records = records.filter(r => r.subject === subject);
   const total = records.length;
   const present = records.filter(r => r.status === 'Present').length;
@@ -207,57 +200,99 @@ export function getAttendanceStats(studentId, subject = null) {
   return { total, present, absent, percentage };
 }
 
-// ============= ATTENDANCE SESSIONS (Faculty) =============
-export function getSessions() {
-  return getAll(SESSIONS_KEY);
+// ============= SESSIONS (Real-time) =============
+export async function getSessions() {
+  const snap = await getDocs(collection(db, SESSIONS_COL));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export function createSession(session) {
-  const sessions = getSessions();
+export async function createSession(session) {
+  const id = `SES-${Date.now()}`;
   const newSession = {
     ...session,
-    id: `SES-${Date.now()}`,
-    createdAt: new Date().toISOString(),
+    id,
+    createdAt: serverTimestamp(),
     status: 'active',
     markedStudents: [],
   };
-  sessions.push(newSession);
-  saveAll(SESSIONS_KEY, sessions);
-  return newSession;
+  await setDoc(doc(db, SESSIONS_COL, id), newSession);
+  return { ...newSession, createdAt: new Date().toISOString() };
 }
 
-export function endSession(sessionId) {
-  const sessions = getSessions();
-  const idx = sessions.findIndex(s => s.id === sessionId);
-  if (idx !== -1) { sessions[idx].status = 'ended'; sessions[idx].endedAt = new Date().toISOString(); saveAll(SESSIONS_KEY, sessions); }
-}
-
-export function getActiveSessions() {
-  const sessions = getSessions();
-  const now = new Date();
-  return sessions.filter(s => {
-    if (s.status !== 'active') return false;
-    const created = new Date(s.createdAt);
-    const durationMs = (s.durationMinutes || 10) * 60 * 1000;
-    if (now - created > durationMs) {
-      s.status = 'expired';
-      return false;
-    }
-    return true;
+export async function endSession(sessionId) {
+  await updateDoc(doc(db, SESSIONS_COL, sessionId), {
+    status: 'ended',
+    endedAt: serverTimestamp(),
   });
 }
 
-export function markStudentInSession(sessionId, studentId, studentName) {
-  const sessions = getSessions();
-  const session = sessions.find(s => s.id === sessionId);
-  if (!session || session.status !== 'active') return false;
-  if (session.markedStudents.includes(studentId)) return false;
+export async function getActiveSessions() {
+  const q = query(collection(db, SESSIONS_COL), where('status', '==', 'active'));
+  const snap = await getDocs(q);
+  const now = new Date();
+  const sessions = [];
+  for (const d of snap.docs) {
+    const s = { id: d.id, ...d.data() };
+    // Convert Firestore Timestamp to JS Date
+    const created = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+    const durationMs = (s.durationMinutes || 10) * 60 * 1000;
+    if (now - created > durationMs) {
+      await updateDoc(doc(db, SESSIONS_COL, d.id), { status: 'expired' });
+    } else {
+      sessions.push({ ...s, createdAt: created.toISOString() });
+    }
+  }
+  return sessions;
+}
 
-  session.markedStudents.push(studentId);
-  saveAll(SESSIONS_KEY, sessions);
+// Real-time listener for active sessions (use in student/faculty components)
+export function subscribeToActiveSessions(callback) {
+  const q = query(collection(db, SESSIONS_COL), where('status', '==', 'active'));
+  return onSnapshot(q, (snap) => {
+    const now = new Date();
+    const sessions = snap.docs
+      .map(d => {
+        const s = { id: d.id, ...d.data() };
+        const created = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+        return { ...s, createdAt: created.toISOString() };
+      })
+      .filter(s => {
+        const created = new Date(s.createdAt);
+        const durationMs = (s.durationMinutes || 10) * 60 * 1000;
+        return now - created <= durationMs;
+      });
+    callback(sessions);
+  });
+}
 
-  // Also add attendance record
-  addAttendanceRecord({
+// Real-time listener for a specific session (for faculty live view)
+export function subscribeToSession(sessionId, callback) {
+  return onSnapshot(doc(db, SESSIONS_COL, sessionId), (snap) => {
+    if (snap.exists()) {
+      const s = { id: snap.id, ...snap.data() };
+      const created = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt);
+      callback({ ...s, createdAt: created.toISOString() });
+    }
+  });
+}
+
+export async function markStudentInSession(sessionId, studentId, studentName) {
+  const sessionRef = doc(db, SESSIONS_COL, sessionId);
+  const sessionSnap = await getDoc(sessionRef);
+  if (!sessionSnap.exists()) return false;
+
+  const session = sessionSnap.data();
+  if (session.status !== 'active') return false;
+  if ((session.markedStudents || []).includes(studentId)) return false;
+
+  // Update session's markedStudents array
+  const { arrayUnion } = await import('firebase/firestore');
+  await updateDoc(sessionRef, {
+    markedStudents: arrayUnion(studentId),
+  });
+
+  // Add attendance record
+  await addAttendanceRecord({
     studentId,
     studentName,
     roll: '',
@@ -274,10 +309,13 @@ export function markStudentInSession(sessionId, studentId, studentName) {
 }
 
 // ============= DASHBOARD STATS =============
-export function getDashboardStats() {
-  const students = getStudents();
-  const attendance = getAttendance();
-  const subjects = getSubjects();
+export async function getDashboardStats() {
+  const [students, attendance, subjects, sessions] = await Promise.all([
+    getStudents(),
+    getAttendance(),
+    getSubjects(),
+    getSessions(),
+  ]);
   const today = new Date().toISOString().split('T')[0];
   const todayAttendance = attendance.filter(a => a.date === today);
 
@@ -286,8 +324,9 @@ export function getDashboardStats() {
     totalSubjects: subjects.length,
     totalAttendanceRecords: attendance.length,
     photoCaptured: students.filter(s => s.photoSample === 'Yes').length,
-    modelTrained: localStorage.getItem('faceattend_model_trained') === 'true',
+    modelTrained: false,
     todayPresent: todayAttendance.filter(a => a.status === 'Present').length,
     todayAbsent: todayAttendance.filter(a => a.status === 'Absent').length,
+    activeSessions: sessions.filter(s => s.status === 'active').length,
   };
 }
