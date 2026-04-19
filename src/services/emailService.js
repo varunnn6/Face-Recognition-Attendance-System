@@ -4,9 +4,9 @@ import emailjs from '@emailjs/browser';
 
 // ⚠️ REPLACE THESE with your EmailJS credentials after setup
 // See README in this file for instructions
-const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'YOUR_SERVICE_ID';
-const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'YOUR_TEMPLATE_ID';
-const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'YOUR_PUBLIC_KEY';
+const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'service_442fh39';
+const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'template_gd5tfks';
+const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'K5ndcsUVve3QM6AIo';
 
 let initialized = false;
 
@@ -37,9 +37,8 @@ export async function sendOtpEmail(toEmail, toName, otp) {
       to_email: toEmail,
       to_name: toName,
       otp_code: otp,
-      app_name: 'FaceAttend',
       expires_in: '15 minutes',
-      support_email: 'admin@faceattend.edu',
+      app_name: 'FaceAttend',
     });
     return { success: true };
   } catch (err) {
