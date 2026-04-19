@@ -4,6 +4,7 @@ import {
   query, where, serverTimestamp, deleteDoc, Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { sendOtpEmail } from './emailService';
 
 const USERS_COL = 'users';
 const RESET_COL = 'password_resets';
@@ -168,11 +169,23 @@ export async function requestPasswordReset(role, username) {
       createdAt: serverTimestamp(),
     });
 
+    // Attempt to send OTP via email
+    let emailSent = false;
+    let userName = username;
+    if (role === 'student') {
+      const { getStudents } = await import('./dataService');
+      const students = await getStudents();
+      const s = students.find(st => st.studentId?.toLowerCase() === username.toLowerCase() || st.name?.toLowerCase() === username.toLowerCase());
+      if (s) userName = s.name;
+    }
+    const emailResult = await sendOtpEmail(email, userName, otp);
+    if (emailResult.success) emailSent = true;
+
     // Mask email for display
     const [localPart, domain] = email.split('@');
     const maskedEmail = `${localPart.slice(0, 2)}***@${domain}`;
 
-    return { success: true, token, maskedEmail };
+    return { success: true, token, maskedEmail, emailSent, email };
   } catch (e) {
     return { success: false, error: e.message };
   }

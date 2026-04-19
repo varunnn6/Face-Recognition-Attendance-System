@@ -27,6 +27,7 @@ export default function LoginModal({ onClose }) {
   const [newPassword, setNewPassword] = useState('');
   const [resetToken, setResetToken] = useState(null);
   const [resetEmail, setResetEmail] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
 
   const { login } = useAuth();
   const toast = useToast();
@@ -69,8 +70,13 @@ export default function LoginModal({ onClose }) {
       if (result.success) {
         setResetToken(result.token);
         setResetEmail(result.maskedEmail);
+        setEmailSent(result.emailSent || false);
         setView('otp');
-        toast.success('OTP sent! Check the admin panel for the reset code.');
+        if (result.emailSent) {
+          toast.success(`OTP sent to ${result.maskedEmail}!`);
+        } else {
+          toast.success('OTP generated! Ask admin for the code or check your email.');
+        }
       } else {
         setError(result.error || 'User not found.');
       }
@@ -218,10 +224,12 @@ export default function LoginModal({ onClose }) {
           {/* ---- OTP + NEW PASSWORD VIEW ---- */}
           {view === 'otp' && (
             <form onSubmit={handleOtpSubmit}>
-              <div style={{ padding: '10px 14px', background: 'rgba(47,165,114,0.1)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(47,165,114,0.3)', marginBottom: 16 }}>
-                <p style={{ fontSize: '0.82rem', color: 'var(--accent-secondary)' }}>
+              <div style={{ padding: '10px 14px', background: emailSent ? 'rgba(47,165,114,0.1)' : 'rgba(255,165,0,0.1)', borderRadius: 'var(--radius-sm)', border: `1px solid ${emailSent ? 'rgba(47,165,114,0.3)' : 'rgba(255,165,0,0.3)'}`, marginBottom: 16 }}>
+                <p style={{ fontSize: '0.82rem', color: emailSent ? 'var(--accent-secondary)' : 'var(--accent-warning)' }}>
                   <Mail size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
-                  OTP generated. Ask admin to check <strong>Admin → Reset Codes</strong> or Firebase console.
+                  {emailSent
+                    ? `OTP sent to ${resetEmail}. Check your inbox (and spam folder).`
+                    : 'EmailJS not configured yet. Ask admin to check Firebase → password_resets collection for your OTP code.'}
                 </p>
               </div>
 
