@@ -1,7 +1,8 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import { LogOut, LogIn, Menu, X } from 'lucide-react';
+import { LogOut, LogIn, Menu, X, KeyRound } from 'lucide-react';
+import ChangePasswordModal from './ChangePasswordModal';
 
 export default function Navbar({ onLoginClick }) {
   const { user, isAuthenticated, logout } = useAuth();
@@ -9,6 +10,7 @@ export default function Navbar({ onLoginClick }) {
   const location = useLocation();
   const [clock, setClock] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showChangePw, setShowChangePw] = useState(false);
 
   useEffect(() => {
     const tick = () => {
@@ -88,6 +90,9 @@ export default function Navbar({ onLoginClick }) {
               <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{user.name}</span>
               <span className="badge badge-success" style={{ marginLeft: 4 }}>{user.role}</span>
             </div>
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowChangePw(true)} id="change-pw-btn" title="Change Password">
+              <KeyRound size={15} /> Password
+            </button>
             <button className="btn btn-ghost btn-sm" onClick={handleLogout} id="logout-btn">
               <LogOut size={15} /> Logout
             </button>
@@ -97,6 +102,7 @@ export default function Navbar({ onLoginClick }) {
             <LogIn size={15} /> Login
           </button>
         )}
+        {showChangePw && <ChangePasswordModal onClose={() => setShowChangePw(false)} />}
 
         <button className="btn btn-icon btn-ghost" onClick={() => setMobileOpen(!mobileOpen)} style={{ display: 'none' }} id="mobile-menu-btn">
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}

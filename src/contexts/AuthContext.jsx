@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { login as authLogin, logout as authLogout, getSession } from '../services/authService';
+import { login as authLogin, logout as authLogout, getSession, changePassword } from '../services/authService';
 import { initializeData } from '../services/dataService';
 
 const AuthContext = createContext(null);
@@ -9,14 +9,15 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    initializeData();
+    initializeData().catch(() => {});
     const session = getSession();
     if (session) setUser(session);
     setLoading(false);
   }, []);
 
-  const login = (role, username, password) => {
-    const result = authLogin(role, username, password);
+  // FIXED: login is now async
+  const login = async (role, username, password) => {
+    const result = await authLogin(role, username, password);
     if (result.success) {
       setUser(result.user);
     }
@@ -28,6 +29,12 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const updatePassword = async (oldPassword, newPassword) => {
+    if (!user) return { success: false, error: 'Not logged in' };
+    const result = await changePassword(user.id, user.role, oldPassword, newPassword);
+    return result;
+  };
+
   const value = {
     user,
     role: user?.role || null,
@@ -35,6 +42,7 @@ export function AuthProvider({ children }) {
     loading,
     login,
     logout,
+    updatePassword,
   };
 
   if (loading) {

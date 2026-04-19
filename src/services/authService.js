@@ -1,8 +1,12 @@
-// Authentication Service — Firestore-backed role-based auth with Anonymous Firebase Auth
-import { collection, doc, getDoc, getDocs, setDoc, query, where, serverTimestamp } from 'firebase/firestore';
+// Authentication Service — Firestore-backed role-based auth with OTP password reset
+import {
+  collection, doc, getDoc, getDocs, setDoc, updateDoc,
+  query, where, serverTimestamp, deleteDoc, Timestamp
+} from 'firebase/firestore';
 import { db } from './firebase';
 
 const USERS_COL = 'users';
+const RESET_COL = 'password_resets';
 const SESSION_KEY = 'faceattend_session';
 
 const DEFAULT_USERS = [
@@ -11,34 +15,31 @@ const DEFAULT_USERS = [
   { id: 'faculty-2', username: 'faculty2', password: 'faculty123', role: 'faculty', name: 'Prof. Gupta', email: 'gupta@faceattend.edu', department: 'IT', subjects: ['Web Development', 'Machine Learning'] },
 ];
 
-// Seed default users into Firestore if not already done
+// — Initialize default users in Firestore —
 export async function initUsers() {
   const settingsRef = doc(db, 'settings', 'users_init');
   const snap = await getDoc(settingsRef);
   if (snap.exists()) return;
-
   for (const user of DEFAULT_USERS) {
-    const { password, ...safeUser } = user; // don't store plain password in prod ideally, ok for demo
     await setDoc(doc(db, USERS_COL, user.id), { ...user, createdAt: serverTimestamp() });
   }
   await setDoc(settingsRef, { done: true });
 }
 
-async function getUsers() {
+async function getAllUsers() {
   const snap = await getDocs(collection(db, USERS_COL));
-  return snap.docs.map(d => ({ ...d.data() }));
+  return snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
 }
 
+// — Login —
 export async function login(role, username, password) {
-  // Ensure users exist in Firestore
   await initUsers();
-  const users = await getUsers();
+  const users = await getAllUsers();
 
-  // Try admin/faculty match
+  // Admin / faculty match
   const user = users.find(
     u => u.role === role && u.username === username && u.password === password
   );
-
   if (user) {
     const session = {
       id: user.id,
@@ -54,14 +55,14 @@ export async function login(role, username, password) {
     return { success: true, user: session };
   }
 
-  // Student login — match by studentId or name with password 'student'
+  // Student login — username = studentId or name, password = 'student' (or custom)
   if (role === 'student') {
     const { getStudents } = await import('./dataService');
     const students = await getStudents();
     const searchStr = username.trim().toLowerCase();
     const student = students.find(
       s => (s.studentId?.toLowerCase() === searchStr || s.name?.toLowerCase() === searchStr)
-        && password === 'student'
+        && (password === 'student' || password === (s.password || 'student'))
     );
     if (student) {
       const session = {
@@ -79,9 +80,10 @@ export async function login(role, username, password) {
     }
   }
 
-  return { success: false, error: 'Invalid credentials' };
+  return { success: false, error: 'Invalid credentials. Please try again.' };
 }
 
+// — Logout —
 export function logout() {
   localStorage.removeItem(SESSION_KEY);
 }
@@ -97,6 +99,135 @@ export function isAuthenticated() {
 
 export function getRole() {
   return getSession()?.role || null;
+}
+
+// — Change Password (while logged in) —
+export async function changePassword(userId, role, oldPassword, newPassword) {
+  try {
+    if (role === 'student') {
+      const { getStudents, updateStudent } = await import('./dataService');
+      const students = await getStudents();
+      const student = students.find(s => s.studentId === userId);
+      if (!student) return { success: false, error: 'User not found' };
+      const currentPass = student.password || 'student';
+      if (oldPassword !== currentPass) return { success: false, error: 'Current password is incorrect' };
+      await updateStudent(userId, { password: newPassword });
+      return { success: true };
+    } else {
+      // Admin or faculty — stored in USERS_COL
+      const users = await getAllUsers();
+      const user = users.find(u => u.id === userId);
+      if (!user) return { success: false, error: 'User not found' };
+      if (oldPassword !== user.password) return { success: false, error: 'Current password is incorrect' };
+      await updateDoc(doc(db, USERS_COL, userId), { password: newPassword, updatedAt: serverTimestamp() });
+      return { success: true };
+    }
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// — Request Password Reset (generates OTP, stores in Firestore) —
+export async function requestPasswordReset(role, username) {
+  try {
+    let email = null;
+    let userRef = null;
+    let userId = null;
+
+    if (role === 'student') {
+      const { getStudents } = await import('./dataService');
+      const students = await getStudents();
+      const searchStr = username.trim().toLowerCase();
+      const student = students.find(
+        s => s.studentId?.toLowerCase() === searchStr || s.name?.toLowerCase() === searchStr
+      );
+      if (!student) return { success: false, error: 'Student not found' };
+      if (!student.email) return { success: false, error: 'No email registered for this student. Contact admin.' };
+      email = student.email;
+      userId = student.studentId;
+    } else {
+      await initUsers();
+      const users = await getAllUsers();
+      const user = users.find(u => u.role === role && u.username === username.trim());
+      if (!user) return { success: false, error: 'User not found' };
+      email = user.email;
+      userId = user.id;
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const token = `${userId}_${Date.now()}`;
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+
+    // Store OTP in Firestore (admin can view in Reset Codes panel)
+    await setDoc(doc(db, RESET_COL, token), {
+      token, otp, userId, role, email,
+      username: username.trim(),
+      expiresAt: Timestamp.fromDate(expiresAt),
+      used: false,
+      createdAt: serverTimestamp(),
+    });
+
+    // Mask email for display
+    const [localPart, domain] = email.split('@');
+    const maskedEmail = `${localPart.slice(0, 2)}***@${domain}`;
+
+    return { success: true, token, maskedEmail };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// — Verify OTP and Reset Password —
+export async function verifyOtpAndReset(token, otp, newPassword) {
+  try {
+    const resetRef = doc(db, RESET_COL, token);
+    const resetSnap = await getDoc(resetRef);
+    if (!resetSnap.exists()) return { success: false, error: 'Invalid or expired reset request' };
+
+    const resetData = resetSnap.data();
+    if (resetData.used) return { success: false, error: 'This OTP has already been used' };
+
+    const expiresAt = resetData.expiresAt.toDate();
+    if (new Date() > expiresAt) return { success: false, error: 'OTP has expired. Request a new one.' };
+
+    if (resetData.otp !== otp) return { success: false, error: 'Incorrect OTP' };
+
+    // Reset password
+    const result = await _forceResetPassword(resetData.userId, resetData.role, newPassword);
+    if (!result.success) return result;
+
+    // Mark OTP as used
+    await updateDoc(resetRef, { used: true, usedAt: serverTimestamp() });
+
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+async function _forceResetPassword(userId, role, newPassword) {
+  try {
+    if (role === 'student') {
+      const { updateStudent } = await import('./dataService');
+      await updateStudent(userId, { password: newPassword });
+    } else {
+      await updateDoc(doc(db, USERS_COL, userId), { password: newPassword, updatedAt: serverTimestamp() });
+    }
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// — Get active reset codes (for admin panel) —
+export async function getActiveResetCodes() {
+  const snap = await getDocs(collection(db, RESET_COL));
+  const now = new Date();
+  return snap.docs
+    .map(d => ({ id: d.id, ...d.data(), expiresAt: d.data().expiresAt?.toDate?.().toISOString() }))
+    .filter(r => !r.used && new Date(r.expiresAt) > now)
+    .sort((a, b) => b.createdAt?.seconds - a.createdAt?.seconds);
 }
 
 export async function addUser(userData) {
