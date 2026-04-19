@@ -168,6 +168,14 @@ export async function addAttendanceRecord(record) {
   return { id: docRef.id, ...record };
 }
 
+export async function updateAttendanceRecord(id, data) {
+  await updateDoc(doc(db, ATTENDANCE_COL, id), { ...data, updatedAt: serverTimestamp() });
+}
+
+export async function deleteAttendanceRecord(id) {
+  await deleteDoc(doc(db, ATTENDANCE_COL, id));
+}
+
 export async function getAttendanceByStudent(studentId) {
   const q = query(collection(db, ATTENDANCE_COL), where('studentId', '==', studentId));
   const snap = await getDocs(q);

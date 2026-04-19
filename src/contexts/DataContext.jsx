@@ -4,7 +4,7 @@ import {
   getStudents, getSubjects, getStreams, getAttendance, getSessions,
   subscribeToActiveSessions, addStudent, updateStudent, deleteStudent,
   addSubject, updateSubject, deleteSubject, addStream, deleteStream,
-  addAttendanceRecord, createSession, endSession, markStudentInSession,
+  addAttendanceRecord, updateAttendanceRecord, deleteAttendanceRecord, createSession, endSession, markStudentInSession,
 } from '../services/dataService';
 import { useAuth } from './AuthContext';
 
@@ -104,6 +104,16 @@ export function DataProvider({ children }) {
     return newRecord;
   };
 
+  const updateAttendanceAndRefresh = async (id, data) => {
+    await updateAttendanceRecord(id, data);
+    setAttendance(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
+  };
+
+  const deleteAttendanceAndRefresh = async (id) => {
+    await deleteAttendanceRecord(id);
+    setAttendance(prev => prev.filter(a => a.id !== id));
+  };
+
   const createSessionAndRefresh = async (session) => {
     const newSession = await createSession(session);
     setSessions(prev => [...prev, newSession]);
@@ -185,6 +195,8 @@ export function DataProvider({ children }) {
 
       // Attendance mutators
       addAttendanceRecord: addAttendanceAndRefresh,
+      updateAttendanceRecord: updateAttendanceAndRefresh,
+      deleteAttendanceRecord: deleteAttendanceAndRefresh,
 
       // Session mutators
       createSession: createSessionAndRefresh,
