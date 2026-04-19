@@ -1,15 +1,14 @@
-// Firebase configuration
-// TODO: Replace with your actual Firebase project config from https://console.firebase.google.com
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: "REPLACE_WITH_YOUR_API_KEY",
-  authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
-  projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
-  storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
-  messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
-  appId: "REPLACE_WITH_YOUR_APP_ID"
+  apiKey: "AIzaSyDNqwhBsCwjU-w7KPubAYWs2CRAE-yu-2s",
+  authDomain: "faceattend-a19ef.firebaseapp.com",
+  projectId: "faceattend-a19ef",
+  storageBucket: "faceattend-a19ef.firebasestorage.app",
+  messagingSenderId: "1030476624116",
+  appId: "1:1030476624116:web:4210929fc209ca4b396ea1",
+  measurementId: "G-J5MTPM8TBL"
 };
 
 const app = initializeApp(firebaseConfig);
