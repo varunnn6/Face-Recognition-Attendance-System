@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useData } from '../../contexts/DataContext';
 import { useToast } from '../../contexts/ToastContext';
 import DataTable from '../../components/ui/DataTable';
-import { UserPlus, Search, Download, Trash2, Edit2, RotateCcw, AlertTriangle } from 'lucide-react';
+import { UserPlus, Search, Download, Trash2, Edit2, RotateCcw, AlertTriangle, Upload } from 'lucide-react';
 
 const COURSE_CONFIG = {
   'B.Tech': {
@@ -164,6 +164,11 @@ export default function StudentManagement() {
     toast.success('Exported students.csv');
   };
 
+  const handleImportCSV = () => {
+    toast.info('Simulating CSV Import...');
+    setTimeout(() => toast.success('24 student records imported successfully.'), 1500);
+  };
+
   const columns = [
     { key: 'studentId', label: 'ID', width: 80 },
     { key: 'name', label: 'Name', width: 120 },
@@ -258,9 +263,14 @@ export default function StudentManagement() {
                   id="search-students"
                 />
               </div>
-              <button className="btn btn-ghost" onClick={handleExportCSV}>
-                <Download size={14} /> Export
-              </button>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button className="btn btn-ghost" onClick={handleImportCSV}>
+                  <Upload size={14} /> Import
+                </button>
+                <button className="btn btn-ghost" onClick={handleExportCSV}>
+                  <Download size={14} /> Export
+                </button>
+              </div>
             </div>
 
             <DataTable
