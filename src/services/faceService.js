@@ -1,84 +1,85 @@
 // src/services/faceService.js
-// Natively leverages FaceAPI.js loaded globally from CDN to extract biometric descriptors.
+// Uses face-api.js loaded via CDN script tag (window.faceapi)
+// Models are bundled locally in /public/models/ for reliability
 
-// Use the public models hosted securely on GitHub.
-const MODEL_URL = 'https://cdn.jsdelivr.net/gh/vladmandic/face-api@master/model/';
+// Local models served from our own Vercel deployment (no CDN dependency)
+const MODEL_URL = '/models';
 
 let modelsLoaded = false;
+let loadingPromise = null;
+
+const waitForFaceAPI = () => new Promise((resolve, reject) => {
+  let attempts = 0;
+  const check = () => {
+    if (window.faceapi) return resolve(window.faceapi);
+    if (++attempts > 50) return reject(new Error('face-api.js not loaded from CDN script'));
+    setTimeout(check, 100);
+  };
+  check();
+});
 
 export const loadModels = async () => {
   if (modelsLoaded) return;
-  // Make sure faceapi is loaded from CDN
-  let attempts = 0;
-  while (!window.faceapi && attempts < 20) {
-    await new Promise(r => setTimeout(r, 100)); // wait 100ms
-    attempts++;
-  }
-  
-  if (!window.faceapi) {
-    throw new Error("CRITICAL: face-api.js script missing or blocked by network.");
-  }
+  // Prevent parallel loads
+  if (loadingPromise) return loadingPromise;
 
-  try {
+  loadingPromise = (async () => {
+    const faceapi = await waitForFaceAPI();
     await Promise.all([
-      window.faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-      window.faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-      window.faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
     ]);
     modelsLoaded = true;
-  } catch (error) {
-    console.error("Failed to load FaceAPI models:", error);
-    throw new Error("Could not initialize biometric AI models.");
-  }
+  })();
+
+  return loadingPromise;
 };
 
 /**
- * Extracts a 128-dimensional Float32 biometric descriptor from a Base64 image.
+ * Extract a 128-float biometric descriptor from a base64 image.
+ * Returns null if no face is detected.
  */
 export const extractFaceDescriptor = async (base64Image) => {
   await loadModels();
-  
+  const faceapi = window.faceapi;
+
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.src = base64Image;
+    img.crossOrigin = 'anonymous';
     img.onload = async () => {
       try {
-        const detection = await window.faceapi
-          .detectSingleFace(img, new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.2 }))
+        const detection = await faceapi
+          .detectSingleFace(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.15 }))
           .withFaceLandmarks()
           .withFaceDescriptor();
-          
-        if (!detection) {
-          return resolve(null);
-        }
-        resolve(Array.from(detection.descriptor)); // Convert Float32Array to standard array for Firestore
+        resolve(detection ? Array.from(detection.descriptor) : null);
       } catch (err) {
         reject(err);
       }
     };
-    img.onerror = () => reject(new Error("Failed to load image for extraction"));
+    img.onerror = () => reject(new Error('Image load failed'));
+    img.src = base64Image;
   });
 };
 
 /**
- * Compares a live descriptor against a known, stored descriptor array.
- * Threshold is strictness: 0.43 is very strict, 0.5 is standard.
+ * Compare a live descriptor against a stored descriptor.
+ * threshold: lower = stricter. 0.5 is standard, 0.45 is strict.
  */
-export const compareFaces = (liveDescriptor, storedDescriptor, threshold = 0.45) => {
+export const compareFaces = (liveDescriptor, storedDescriptor, threshold = 0.5) => {
   try {
     if (!liveDescriptor || !storedDescriptor) return { match: false, distance: 1.0, confidence: 0 };
-    
     const live = new Float32Array(liveDescriptor);
     const stored = new Float32Array(storedDescriptor);
-    
     const distance = window.faceapi.euclideanDistance(live, stored);
     return {
       match: distance < threshold,
       distance,
-      confidence: Math.max(0, 1 - distance)
+      confidence: Math.max(0, Math.round((1 - distance) * 100)),
     };
   } catch (err) {
-    console.error("Comparison Error:", err);
+    console.error('compareFaces error:', err);
     return { match: false, distance: 1.0, confidence: 0 };
   }
 };
