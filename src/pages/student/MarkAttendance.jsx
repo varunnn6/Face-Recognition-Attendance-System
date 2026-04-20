@@ -31,6 +31,23 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
     let scanInterval;
     let verifyTimeout;
 
+    const triggerSuccess = () => {
+      if (recognizedRef.current) return;
+      recognizedRef.current = true;
+      clearInterval(scanInterval);
+      setPhase('verified');
+      setScanMessage(`${studentName} verified ✓`);
+      if (videoRef.current) videoRef.current.pause();
+
+      verifyTimeout = setTimeout(() => {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop());
+          streamRef.current = null;
+        }
+        onRecognizedRef.current();
+      }, 2000);
+    };
+
     const startCam = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
@@ -41,74 +58,64 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
         }
         setActive(true);
         setPhase('scanning');
-        setScanMessage('Detecting face...');
+        setScanMessage('Loading AI models...');
 
-            // Initialize models instantly
-            loadModels().catch(err => console.error(err));
-            
-            const myProfile = students.find(s => s.studentId === studentId);
-            const storedDescriptor = myProfile?.faceDescriptor;
+        // MUST await model loading before scanning starts
+        try {
+          await loadModels();
+        } catch (err) {
+          console.error('Model load error:', err);
+          setPhase('error');
+          setScanMessage('Failed to load AI engine. Please reload the page.');
+          return;
+        }
 
-            if (!storedDescriptor) {
-              setPhase('error');
-              setScanMessage(`ERROR: No biometric profile found for ${studentName}. Please register a face via Admin.`);
+        const myProfile = students.find(s => s.studentId === studentId);
+        const storedDescriptor = myProfile?.faceDescriptor;
+
+        if (!storedDescriptor) {
+          setPhase('error');
+          setScanMessage(`No biometric profile found for ${studentName}. Please complete photo capture in Admin first.`);
+          return;
+        }
+
+        setScanMessage('Look directly at the camera...');
+
+        scanInterval = setInterval(async () => {
+          if (recognizedRef.current) return;
+          const frameBase64 = captureFrame();
+          if (!frameBase64) return;
+
+          try {
+            const liveDescriptor = await extractFaceDescriptor(frameBase64);
+
+            if (!liveDescriptor) {
+              setScanMessage('No face detected. Look directly at the camera.');
               return;
             }
 
-            const scanInterval = setInterval(async () => {
-              if (recognizedRef.current) return;
-              const frameBase64 = captureFrame();
-              if (!frameBase64) return;
+            const result = compareFaces(liveDescriptor, storedDescriptor, 0.50);
 
-              try {
-                // Extract descriptor locally via WebGL
-                const liveDescriptor = await extractFaceDescriptor(frameBase64);
-                
-                if (!liveDescriptor) {
-                  setScanMessage('Evaluating biometrics...');
-                  return;
-                }
-
-                // Strictly compare
-                const result = compareFaces(liveDescriptor, storedDescriptor, 0.45);
-                
-                if (result.match) {
-                  triggerSuccess();
-                } else {
-                  setScanMessage('Biometric Mismatch. Identity rejected.');
-                }
-              } catch (err) {
-                console.error("Local ML Error:", err);
-                setScanMessage('AI Engine error.');
-              }
-            }, 1000);
-
-            const triggerSuccess = () => {
-              if (recognizedRef.current) return;
-              recognizedRef.current = true;
-              clearInterval(scanInterval);
-              setPhase('verified');
-              setScanMessage(`${studentName} verified ✓`);
-              if (videoRef.current) videoRef.current.pause();
-
-              verifyTimeout = setTimeout(() => {
-                if (streamRef.current) {
-                  streamRef.current.getTracks().forEach(t => t.stop());
-                  streamRef.current = null;
-                }
-                onRecognizedRef.current();
-              }, 2000);
-            };
+            if (result.match) {
+              triggerSuccess();
+            } else {
+              setScanMessage(`Biometric mismatch — identity not confirmed. (${Math.round(result.confidence * 100)}%)`);
+            }
+          } catch (err) {
+            console.error('ML Error:', err);
+            setScanMessage('AI Engine error — retrying...');
+          }
+        }, 1200);
 
       } catch (e) {
         console.error('Camera error:', e);
-        setScanMessage('Camera access denied');
+        setScanMessage('Camera access denied. Please allow camera permissions.');
+        setPhase('error');
       }
     };
 
     startCam();
 
-    // Cleanup on unmount
     return () => {
       clearInterval(scanInterval);
       clearTimeout(verifyTimeout);
@@ -117,7 +124,7 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
         streamRef.current = null;
       }
     };
-  }, [studentId, studentName]); // Re-run if student changes
+  }, [studentId, studentName, students]); // Re-run if student or profile changes
 
 
   return (
