@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import CameraPreview from '../../components/ui/CameraPreview';
 import { useToast } from '../../contexts/ToastContext';
+import { extractFaceDescriptor, loadModels } from '../../services/faceService';
 import { Camera, Search, User, X, CheckCircle } from 'lucide-react';
 
 export default function PhotoCapture() {
@@ -11,6 +12,14 @@ export default function PhotoCapture() {
   const [capturedPhotos, setCapturedPhotos] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    loadModels().catch(err => {
+      console.error("AI Model Init Error:", err);
+      toast.error("Failed to load Face AI Engine in browser.");
+    });
+  }, [toast]);
 
   // Filter students by search query
   const filteredStudents = useMemo(() => {
@@ -42,32 +51,34 @@ export default function PhotoCapture() {
     if (!selectedStudent) return;
 
     try {
-      toast.info('Uploading 100 photos to AI Server...', { duration: 3000 });
+      setIsProcessing(true);
+      toast.info('Extracting biometric vectors via WebGL AI Engine...', { duration: 3000 });
       const b64Photos = capturedPhotos.map(p => p.dataUrl);
       const student = students.find(s => s.studentId === selectedStudent);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/register_face`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: selectedStudent,
-          studentName: student ? student.name : selectedStudent,
-          photos: b64Photos
-        })
-      });
-      const data = await response.json();
+      // Extract descriptor from the first clear image
+      let bestDescriptor = null;
+      for (let i = 0; i < Math.min(b64Photos.length, 10); i++) {
+        const desc = await extractFaceDescriptor(b64Photos[i]);
+        if (desc) {
+          bestDescriptor = desc;
+          break;
+        }
+      }
 
-      if (response.ok && data.success) {
-        updateStudent(selectedStudent, { photoSample: 'Yes' });
-        toast.success(`AI Registration complete! Face mapped for ${student?.name}.`);
+      if (bestDescriptor) {
+        await updateStudent(selectedStudent, { photoSample: 'Yes', faceDescriptor: bestDescriptor });
+        toast.success(`Biometric Registration complete! Identity mapped for ${student?.name}.`);
       } else {
-        toast.error(`AI Server: ${data.message || data.detail}`);
+        toast.error('Could not detect a clear face in the images. Please retake the burst in good lighting.');
       }
     } catch (err) {
-      console.error('API Error (Backend not running, using simulated fallback):', err);
-      toast.success('Photos processed and saved for model training! (Local Fallback)');
-      // local fallback
+      console.error('Extraction Error:', err);
+      toast.error('AI Engine encountered an extraction error.');
+      // local fallback if webgl crashes
       updateStudent(selectedStudent, { photoSample: 'Yes' });
+    } finally {
+      setIsProcessing(false);
     }
   };
 

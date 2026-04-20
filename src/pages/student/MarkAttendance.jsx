@@ -2,9 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useData } from '../../contexts/DataContext';
+import { extractFaceDescriptor, compareFaces, loadModels } from '../../services/faceService';
 import { ScanFace, Clock, CheckCircle, ShieldOff, XCircle } from 'lucide-react';
 
 const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
+  const { students } = useData();
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const recognizedRef = useRef(false); // Prevent double-firing
@@ -41,36 +43,45 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
         setPhase('scanning');
         setScanMessage('Detecting face...');
 
-            let localAttemptCount = 0;
+            // Initialize models instantly
+            loadModels().catch(err => console.error(err));
+            
+            const myProfile = students.find(s => s.studentId === studentId);
+            const storedDescriptor = myProfile?.faceDescriptor;
+
+            if (!storedDescriptor) {
+              setPhase('error');
+              setScanMessage(`ERROR: No biometric profile found for ${studentName}. Please register a face via Admin.`);
+              return;
+            }
+
             const scanInterval = setInterval(async () => {
               if (recognizedRef.current) return;
-              localAttemptCount++;
               const frameBase64 = captureFrame();
               if (!frameBase64) return;
 
               try {
-                // Try backend first
-                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/recognize_face`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ studentId, studentName, frame: frameBase64 })
-                });
-                const data = await response.json();
+                // Extract descriptor locally via WebGL
+                const liveDescriptor = await extractFaceDescriptor(frameBase64);
+                
+                if (!liveDescriptor) {
+                  setScanMessage('Evaluating biometrics...');
+                  return;
+                }
 
-                if (response.ok && data.verified) {
+                // Strictly compare
+                const result = compareFaces(liveDescriptor, storedDescriptor, 0.45);
+                
+                if (result.match) {
                   triggerSuccess();
                 } else {
-                  setScanMessage(data.message || (data.detail ? data.detail : 'Looking for face...'));
+                  setScanMessage('Biometric Mismatch. Identity rejected.');
                 }
               } catch (err) {
-                // Backend is down, simulate success locally after ~3 seconds (2 attempts)
-                if (localAttemptCount >= 2) {
-                  triggerSuccess();
-                } else {
-                  setScanMessage('Evaluating biometrics...');
-                }
+                console.error("Local ML Error:", err);
+                setScanMessage('AI Engine error.');
               }
-            }, 1500);
+            }, 1000);
 
             const triggerSuccess = () => {
               if (recognizedRef.current) return;
