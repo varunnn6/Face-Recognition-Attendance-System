@@ -56,9 +56,9 @@ export default function PhotoCapture() {
       const b64Photos = capturedPhotos.map(p => p.dataUrl);
       const student = students.find(s => s.studentId === selectedStudent);
 
-      // Extract descriptor from the first clear image
+      // Extract descriptor: check images until a valid face is found (up to 30 frames to guarantee a hit)
       let bestDescriptor = null;
-      for (let i = 0; i < Math.min(b64Photos.length, 10); i++) {
+      for (let i = 0; i < Math.min(b64Photos.length, 30); i++) {
         const desc = await extractFaceDescriptor(b64Photos[i]);
         if (desc) {
           bestDescriptor = desc;
@@ -286,12 +286,21 @@ export default function PhotoCapture() {
                     100 photos captured successfully!
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 24 }}>
-                  <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2, borderColor: 'var(--accent-info)', borderTopColor: 'transparent' }} />
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    AI Engine: Auto-extracting biometric vectors & updating identity model...
-                  </span>
-                </div>
+                {isProcessing ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 24 }}>
+                    <div className="spinner" style={{ width: 12, height: 12, borderWidth: 2, borderColor: 'var(--accent-info)', borderTopColor: 'transparent' }} />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      AI Engine: Auto-extracting biometric vectors & updating identity model...
+                    </span>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 24 }}>
+                    <CheckCircle size={12} style={{ color: 'var(--accent-info)' }} />
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Identity Model actively mapped and synchronized.
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>

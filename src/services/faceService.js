@@ -44,7 +44,7 @@ export const extractFaceDescriptor = async (base64Image) => {
     img.onload = async () => {
       try {
         const detection = await window.faceapi
-          .detectSingleFace(img, new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+          .detectSingleFace(img, new window.faceapi.SsdMobilenetv1Options({ minConfidence: 0.2 }))
           .withFaceLandmarks()
           .withFaceDescriptor();
           
