@@ -1,18 +1,18 @@
 // src/services/faceService.js
-// Uses face-api.js loaded via CDN script tag (window.faceapi)
-// Models are bundled locally in /public/models/ for reliability
+// Face recognition using face-api.js (loaded from CDN as window.faceapi)
+// Models are served locally from /public/models/
 
-// Local models served from our own Vercel deployment (no CDN dependency)
 const MODEL_URL = '/models';
 
 let modelsLoaded = false;
 let loadingPromise = null;
 
+// Wait for face-api.js CDN script to be ready on window
 const waitForFaceAPI = () => new Promise((resolve, reject) => {
   let attempts = 0;
   const check = () => {
     if (window.faceapi) return resolve(window.faceapi);
-    if (++attempts > 50) return reject(new Error('face-api.js not loaded from CDN script'));
+    if (++attempts > 60) return reject(new Error('face-api.js CDN script did not load'));
     setTimeout(check, 100);
   };
   check();
@@ -20,7 +20,6 @@ const waitForFaceAPI = () => new Promise((resolve, reject) => {
 
 export const loadModels = async () => {
   if (modelsLoaded) return;
-  // Prevent parallel loads
   if (loadingPromise) return loadingPromise;
 
   loadingPromise = (async () => {
@@ -31,41 +30,58 @@ export const loadModels = async () => {
       faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
     ]);
     modelsLoaded = true;
+    console.log('[FaceService] Models loaded from /models/');
   })();
 
   return loadingPromise;
 };
 
 /**
- * Extract a 128-float biometric descriptor from a base64 image.
- * Returns null if no face is detected.
+ * Extract a 128-float descriptor directly from an HTMLVideoElement or HTMLCanvasElement.
+ * This is the MOST RELIABLE method — no base64 conversion needed.
+ * Use this for live camera recognition.
+ */
+export const extractDescriptorFromElement = async (element) => {
+  await loadModels();
+  const faceapi = window.faceapi;
+  const detection = await faceapi
+    .detectSingleFace(element, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.1 }))
+    .withFaceLandmarks()
+    .withFaceDescriptor();
+  return detection ? Array.from(detection.descriptor) : null;
+};
+
+/**
+ * Extract a 128-float descriptor from a base64 image string.
+ * Used for photo capture registration.
  */
 export const extractFaceDescriptor = async (base64Image) => {
   await loadModels();
   const faceapi = window.faceapi;
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // Do NOT set crossOrigin for data URLs — it breaks them
     img.onload = async () => {
       try {
         const detection = await faceapi
-          .detectSingleFace(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.15 }))
+          .detectSingleFace(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.1 }))
           .withFaceLandmarks()
           .withFaceDescriptor();
         resolve(detection ? Array.from(detection.descriptor) : null);
       } catch (err) {
-        reject(err);
+        console.error('[FaceService] extractFaceDescriptor error:', err);
+        resolve(null);
       }
     };
-    img.onerror = () => reject(new Error('Image load failed'));
+    img.onerror = () => resolve(null);
     img.src = base64Image;
   });
 };
 
 /**
  * Compare a live descriptor against a stored descriptor.
- * threshold: lower = stricter. 0.5 is standard, 0.45 is strict.
+ * Returns { match, distance, confidence }
  */
 export const compareFaces = (liveDescriptor, storedDescriptor, threshold = 0.5) => {
   try {
@@ -79,7 +95,7 @@ export const compareFaces = (liveDescriptor, storedDescriptor, threshold = 0.5) 
       confidence: Math.max(0, Math.round((1 - distance) * 100)),
     };
   } catch (err) {
-    console.error('compareFaces error:', err);
+    console.error('[FaceService] compareFaces error:', err);
     return { match: false, distance: 1.0, confidence: 0 };
   }
 };

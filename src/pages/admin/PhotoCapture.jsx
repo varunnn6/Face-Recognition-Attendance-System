@@ -47,35 +47,29 @@ export default function PhotoCapture() {
     });
   };
 
-  const handleBurstComplete = async () => {
-    if (!selectedStudent) return;
-
+  const trainModel = async () => {
+    if (!selectedStudent) {
+      toast.error('Select a student before training');
+      return;
+    }
     try {
       setIsProcessing(true);
       toast.info('Extracting biometric vectors via WebGL AI Engine...', { duration: 3000 });
       const b64Photos = capturedPhotos.map(p => p.dataUrl);
-      const student = students.find(s => s.studentId === selectedStudent);
-
-      // Extract descriptor: check images until a valid face is found (up to 30 frames to guarantee a hit)
       let bestDescriptor = null;
       for (let i = 0; i < Math.min(b64Photos.length, 30); i++) {
         const desc = await extractFaceDescriptor(b64Photos[i]);
-        if (desc) {
-          bestDescriptor = desc;
-          break;
-        }
+        if (desc) { bestDescriptor = desc; break; }
       }
-
       if (bestDescriptor) {
         await updateStudent(selectedStudent, { photoSample: 'Yes', faceDescriptor: bestDescriptor });
-        toast.success(`Biometric Registration complete! Identity mapped for ${student?.name}.`);
+        toast.success(`Biometric Registration complete! Identity mapped for ${students.find(s => s.studentId === selectedStudent)?.name}.`);
       } else {
         toast.error('Could not detect a clear face in the images. Please retake the burst in good lighting.');
       }
     } catch (err) {
-      console.error('Extraction Error:', err);
+      console.error('Training Error:', err);
       toast.error('AI Engine encountered an extraction error.');
-      // local fallback if webgl crashes
       updateStudent(selectedStudent, { photoSample: 'Yes' });
     } finally {
       setIsProcessing(false);
@@ -112,7 +106,7 @@ export default function PhotoCapture() {
             onCapture={handleCapture}
             captureCount={capturedPhotos.length}
             maxCaptures={100}
-            onBurstComplete={handleBurstComplete}
+            onBurstComplete={trainModel}
           />
 
           {/* Tips */}
@@ -121,6 +115,15 @@ export default function PhotoCapture() {
               <span key={tip} className="badge badge-info">{tip}</span>
             ))}
           </div>
+          {/* Manual Train Model button */}
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={trainModel}
+            disabled={isProcessing || capturedPhotos.length === 0}
+            style={{ marginTop: 'var(--space-md)' }}
+          >
+            {isProcessing ? 'Training...' : 'Train Model'}
+          </button>
         </div>
 
         {/* Right Panel */}

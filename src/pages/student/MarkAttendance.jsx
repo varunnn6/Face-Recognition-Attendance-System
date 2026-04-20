@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useData } from '../../contexts/DataContext';
-import { extractFaceDescriptor, compareFaces, loadModels } from '../../services/faceService';
+import { extractDescriptorFromElement, compareFaces, loadModels } from '../../services/faceService';
 import { ScanFace, Clock, CheckCircle, ShieldOff, XCircle } from 'lucide-react';
 
 const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
@@ -83,27 +83,28 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
 
         scanInterval = setInterval(async () => {
           if (recognizedRef.current) return;
-          const frameBase64 = captureFrame();
-          if (!frameBase64) return;
+          // Check video is ready
+          if (!videoRef.current || videoRef.current.readyState < 2) return;
 
           try {
-            const liveDescriptor = await extractFaceDescriptor(frameBase64);
+            // Pass video element DIRECTLY to face-api — most reliable across all browsers/phones
+            const liveDescriptor = await extractDescriptorFromElement(videoRef.current);
 
             if (!liveDescriptor) {
               setScanMessage('No face detected. Look directly at the camera.');
               return;
             }
 
-            const result = compareFaces(liveDescriptor, storedDescriptor, 0.50);
+            const result = compareFaces(liveDescriptor, storedDescriptor, 0.55);
 
             if (result.match) {
               triggerSuccess();
             } else {
-              setScanMessage(`Biometric mismatch — identity not confirmed. (${Math.round(result.confidence * 100)}%)`);
+              setScanMessage(`Scanning... (${result.confidence}% match needed: 45%)`);
             }
           } catch (err) {
-            console.error('ML Error:', err);
-            setScanMessage('AI Engine error — retrying...');
+            console.error('[MarkAttendance] ML Error:', err);
+            setScanMessage('Retrying scan...');
           }
         }, 1200);
 
