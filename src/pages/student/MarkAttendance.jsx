@@ -229,6 +229,32 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
           </p>
         </div>
       )}
+      {/* Error Overlay */}
+      {phase === 'error' && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'rgba(255,70,70,0.15)', backdropFilter: 'blur(4px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: 24, textAlign: 'center',
+        }}>
+          <XCircle size={48} style={{ color: 'var(--accent-danger)', marginBottom: 12 }} />
+          <p style={{ color: '#fff', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.5 }}>{scanMessage}</p>
+        </div>
+      )}
+
+      {/* Always-visible bottom status bar */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        padding: '10px 16px',
+        background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        {phase === 'scanning' && <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2, flexShrink: 0 }} />}
+        {phase === 'verified' && <CheckCircle size={14} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />}
+        {phase === 'error' && <XCircle size={14} style={{ color: 'var(--accent-danger)', flexShrink: 0 }} />}
+        {phase === 'init' && <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2, flexShrink: 0 }} />}
+        <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 600 }}>{scanMessage}</span>
+      </div>
     </div>
   );
 };
