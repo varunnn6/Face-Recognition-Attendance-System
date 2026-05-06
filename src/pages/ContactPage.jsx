@@ -14,8 +14,7 @@ export default function ContactPage() {
 
       <div className="grid-3" style={{ marginBottom: 'var(--space-xl)' }}>
         {[
-          { icon: Mail, label: 'Email', value: 'support@faceattend.edu' },
-          { icon: Phone, label: 'Phone', value: '+91 98765 43210' },
+          { icon: Mail, label: 'Email', value: 'varunmaliksd@gmail.com' },
           { icon: MapPin, label: 'Address', value: 'Campus, India' },
         ].map((c, i) => (
           <div key={i} className="card-static" style={{ padding: 20, textAlign: 'center' }}>

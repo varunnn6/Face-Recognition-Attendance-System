@@ -52,9 +52,6 @@ export default function AdminEmailReports() {
       }, { merge: true });
       
       toast.success(`Automation preference saved as: ${selectedFrequency.toUpperCase()}`);
-      if (selectedFrequency !== 'manual') {
-        toast.info('Note: Full automated background sending requires Firebase Cloud Functions (Blaze Plan).', { duration: 5000 });
-      }
     } catch (err) {
       console.error(err);
       toast.error('Failed to save automation settings');

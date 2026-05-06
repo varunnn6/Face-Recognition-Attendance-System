@@ -47,52 +47,10 @@ const SEED_FACULTY = [
 
 // ============= INITIALIZATION =============
 export async function initializeData() {
-  // Check if already seeded
-  const settingsRef = doc(db, SETTINGS_COL, 'init');
-  const settingsSnap = await getDoc(settingsRef);
-  if (settingsSnap.exists() && settingsSnap.data().seeded) return;
-
-  // Seed students
-  for (const student of SEED_STUDENTS) {
-    await setDoc(doc(db, STUDENTS_COL, student.studentId), student);
-  }
-  // Seed subjects
-  for (const subject of SEED_SUBJECTS) {
-    await setDoc(doc(db, SUBJECTS_COL, subject.id), subject);
-  }
-  // Seed streams
-  for (const stream of SEED_STREAMS) {
-    await setDoc(doc(db, STREAMS_COL, stream.id), stream);
-  }
-  // Seed faculty
-  for (const fac of SEED_FACULTY) {
-    await setDoc(doc(db, FACULTY_COL, fac.id), fac);
-  }
-  // Mark as initialized
-  await setDoc(settingsRef, { seeded: true, timestamp: serverTimestamp() });
-
-  // Seed sample attendance (last 5 days only to keep it lightweight)
-  const subjects = ['Data Structures', 'Database Systems', 'Operating Systems'];
-  const statuses = ['Present', 'Present', 'Present', 'Present', 'Absent'];
-  for (let d = 5; d >= 1; d--) {
-    const date = new Date();
-    date.setDate(date.getDate() - d);
-    if (date.getDay() === 0 || date.getDay() === 6) continue;
-    const dateStr = date.toISOString().split('T')[0];
-    for (const student of SEED_STUDENTS.filter(s => s.department === 'Computer')) {
-      for (const subject of subjects) {
-        const status = statuses[Math.floor(Math.random() * statuses.length)];
-        await addDoc(collection(db, ATTENDANCE_COL), {
-          studentId: student.studentId, studentName: student.name,
-          roll: student.roll, department: student.department,
-          subject, date: dateStr, status, markedBy: 'system',
-          time: `${9 + Math.floor(Math.random() * 6)}:00`,
-          createdAt: serverTimestamp(),
-        });
-      }
-    }
-  }
+  // SEEDING DISABLED: To prevent any accidental overwriting of user-added data.
+  return;
 }
+
 
 // ============= STUDENTS =============
 export async function getStudents() {
