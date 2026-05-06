@@ -39,7 +39,7 @@ signInAnonymously(auth).then(() => {
 const EMAILJS_SERVICE_ID = process.env.EMAILJS_SERVICE_ID || 'service_442fh39'; // Default service ID
 const EMAILJS_TEMPLATE_ID = process.env.EMAILJS_TEMPLATE_ID || 'template_ccc0ujk';
 const EMAILJS_PUBLIC_KEY = process.env.EMAILJS_PUBLIC_KEY || 'K5ndcsUVve3QM6AIo';
-const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY || 'KXzEidGAtueKHHBiUuLoC'; // Add private key from EmailJS dashboard Account -> API Keys
+const EMAILJS_PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY || ''; // Security: Add to .env file
 
 // ==========================================
 // 3. AUTOMATION LOGIC
