@@ -17,8 +17,10 @@ import ContactPage from './pages/ContactPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import StudentManagement from './pages/admin/StudentManagement';
 import SubjectManagement from './pages/admin/SubjectManagement';
+import FacultyManagement from './pages/admin/FacultyManagement';
 import PhotoCapture from './pages/admin/PhotoCapture';
 import AdminAttendance from './pages/admin/AdminAttendance';
+import AdminEmailReports from './pages/admin/AdminEmailReports';
 
 // Faculty pages
 import FacultyDashboard from './pages/faculty/FacultyDashboard';
@@ -48,9 +50,11 @@ function App() {
               {/* Admin Routes */}
               <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><AdminDashboard /></ProtectedRoute>} />
               <Route path="/admin/students" element={<ProtectedRoute allowedRoles={['admin']}><StudentManagement /></ProtectedRoute>} />
+              <Route path="/admin/faculty" element={<ProtectedRoute allowedRoles={['admin']}><FacultyManagement /></ProtectedRoute>} />
               <Route path="/admin/subjects" element={<ProtectedRoute allowedRoles={['admin']}><SubjectManagement /></ProtectedRoute>} />
               <Route path="/admin/capture" element={<ProtectedRoute allowedRoles={['admin']}><PhotoCapture /></ProtectedRoute>} />
               <Route path="/admin/attendance" element={<ProtectedRoute allowedRoles={['admin']}><AdminAttendance /></ProtectedRoute>} />
+              <Route path="/admin/emails" element={<ProtectedRoute allowedRoles={['admin']}><AdminEmailReports /></ProtectedRoute>} />
 
               {/* Faculty Routes */}
               <Route path="/faculty" element={<ProtectedRoute allowedRoles={['faculty']}><FacultyDashboard /></ProtectedRoute>} />

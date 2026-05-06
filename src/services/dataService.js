@@ -12,6 +12,7 @@ const STREAMS_COL = 'streams';
 const ATTENDANCE_COL = 'attendance';
 const SESSIONS_COL = 'sessions';
 const SETTINGS_COL = 'settings';
+const FACULTY_COL = 'faculty';
 
 // ============= SEED DATA =============
 const SEED_STUDENTS = [
@@ -39,6 +40,11 @@ const SEED_STREAMS = [
   { id: 'STR004', name: 'MCA', departments: ['Computer', 'IT'], years: 2, semesters: 4 },
 ];
 
+const SEED_FACULTY = [
+  { id: 'FAC001', name: 'Dr. Sharma', email: 'dr.sharma@example.com', department: 'Computer', phone: '9876543201', designation: 'Professor' },
+  { id: 'FAC002', name: 'Prof. Gupta', email: 'prof.gupta@example.com', department: 'IT', phone: '9876543202', designation: 'Associate Professor' },
+];
+
 // ============= INITIALIZATION =============
 export async function initializeData() {
   // Check if already seeded
@@ -58,6 +64,13 @@ export async function initializeData() {
   for (const stream of SEED_STREAMS) {
     await setDoc(doc(db, STREAMS_COL, stream.id), stream);
   }
+  // Seed faculty
+  for (const fac of SEED_FACULTY) {
+    await setDoc(doc(db, FACULTY_COL, fac.id), fac);
+  }
+  // Mark as initialized
+  await setDoc(settingsRef, { seeded: true, timestamp: serverTimestamp() });
+
   // Seed sample attendance (last 5 days only to keep it lightweight)
   const subjects = ['Data Structures', 'Database Systems', 'Operating Systems'];
   const statuses = ['Present', 'Present', 'Present', 'Present', 'Absent'];
@@ -79,8 +92,6 @@ export async function initializeData() {
       }
     }
   }
-
-  await setDoc(settingsRef, { seeded: true, seededAt: serverTimestamp() });
 }
 
 // ============= STUDENTS =============
@@ -130,6 +141,25 @@ export async function updateSubject(id, data) {
 
 export async function deleteSubject(id) {
   await deleteDoc(doc(db, SUBJECTS_COL, id));
+}
+
+// ============= FACULTY CRUD =============
+export async function getFaculty() {
+  const snapshot = await getDocs(collection(db, FACULTY_COL));
+  return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+}
+
+export async function addFaculty(facultyData) {
+  const docRef = doc(db, FACULTY_COL, facultyData.id || `FAC${Date.now()}`);
+  await setDoc(docRef, { ...facultyData, createdAt: serverTimestamp() });
+}
+
+export async function updateFaculty(id, data) {
+  await updateDoc(doc(db, FACULTY_COL, id), data);
+}
+
+export async function deleteFaculty(id) {
+  await deleteDoc(doc(db, FACULTY_COL, id));
 }
 
 // ============= STREAMS =============

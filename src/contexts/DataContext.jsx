@@ -4,6 +4,7 @@ import {
   getStudents, getSubjects, getStreams, getAttendance, getSessions,
   subscribeToActiveSessions, addStudent, updateStudent, deleteStudent,
   addSubject, updateSubject, deleteSubject, addStream, deleteStream,
+  getFaculty, addFaculty, updateFaculty, deleteFaculty,
   addAttendanceRecord, updateAttendanceRecord, deleteAttendanceRecord, createSession, endSession, markStudentInSession,
 } from '../services/dataService';
 import { useAuth } from './AuthContext';
@@ -16,6 +17,7 @@ export function DataProvider({ children }) {
   const [students, setStudents]       = useState([]);
   const [subjects, setSubjects]       = useState([]);
   const [streams, setStreams]         = useState([]);
+  const [faculty, setFaculty]         = useState([]);
   const [attendance, setAttendance]   = useState([]);
   const [sessions, setSessions]       = useState([]);
   const [activeSessions, setActiveSessions] = useState([]);
@@ -28,12 +30,13 @@ export function DataProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
-      const [s, sub, str, att, ses] = await Promise.all([
-        getStudents(), getSubjects(), getStreams(), getAttendance(), getSessions(),
+      const [s, sub, str, fac, att, ses] = await Promise.all([
+        getStudents(), getSubjects(), getStreams(), getFaculty(), getAttendance(), getSessions(),
       ]);
       setStudents(s);
       setSubjects(sub);
       setStreams(str);
+      setFaculty(fac);
       setAttendance(att);
       setSessions(ses);
     } catch (e) {
@@ -96,6 +99,22 @@ export function DataProvider({ children }) {
   const deleteStreamAndRefresh = async (id) => {
     await deleteStream(id);
     setStreams(prev => prev.filter(s => s.id !== id));
+  };
+
+  const addFacultyAndRefresh = async (fac) => {
+    await addFaculty(fac);
+    const updated = await getFaculty();
+    setFaculty(updated);
+  };
+
+  const updateFacultyAndRefresh = async (id, data) => {
+    await updateFaculty(id, data);
+    setFaculty(prev => prev.map(f => f.id === id ? { ...f, ...data } : f));
+  };
+
+  const deleteFacultyAndRefresh = async (id) => {
+    await deleteFaculty(id);
+    setFaculty(prev => prev.filter(f => f.id !== id));
   };
 
   const addAttendanceAndRefresh = async (record) => {
@@ -173,7 +192,7 @@ export function DataProvider({ children }) {
   return (
     <DataContext.Provider value={{
       // State
-      students, subjects, streams, attendance, sessions, activeSessions,
+      students, subjects, streams, faculty, attendance, sessions, activeSessions,
       loading, error,
 
       // Refresh
@@ -192,6 +211,11 @@ export function DataProvider({ children }) {
       // Stream mutators
       addStream: addStreamAndRefresh,
       deleteStream: deleteStreamAndRefresh,
+
+      // Faculty mutators
+      addFaculty: addFacultyAndRefresh,
+      updateFaculty: updateFacultyAndRefresh,
+      deleteFaculty: deleteFacultyAndRefresh,
 
       // Attendance mutators
       addAttendanceRecord: addAttendanceAndRefresh,

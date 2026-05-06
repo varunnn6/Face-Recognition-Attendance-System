@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Users, BookOpen, Brain, Camera, CalendarDays,
-  Settings, PlayCircle, Search, BarChart3, UserCheck, ScanFace
+  Settings, PlayCircle, Search, BarChart3, UserCheck, ScanFace, Mail, GraduationCap
 } from 'lucide-react';
 
 const sidebarConfig = {
@@ -12,6 +12,7 @@ const sidebarConfig = {
     ]},
     { label: 'MANAGEMENT', items: [
       { to: '/admin/students', icon: Users, text: 'Students' },
+      { to: '/admin/faculty', icon: GraduationCap, text: 'Teachers' },
       { to: '/admin/subjects', icon: BookOpen, text: 'Subjects' },
     ]},
     { label: 'AI ENGINE', items: [
@@ -19,6 +20,7 @@ const sidebarConfig = {
     ]},
     { label: 'RECORDS', items: [
       { to: '/admin/attendance', icon: CalendarDays, text: 'Attendance' },
+      { to: '/admin/emails', icon: Mail, text: 'Email Reports' },
     ]},
   ],
   faculty: [
