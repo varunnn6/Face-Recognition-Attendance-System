@@ -14,8 +14,9 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
   onRecognizedRef.current = onRecognized;
 
   const [active, setActive] = useState(false);
-  const [phase, setPhase] = useState('init'); // 'init' | 'scanning' | 'verified'
+  const [phase, setPhase] = useState('init'); // 'init' | 'scanning' | 'verified' | 'failed'
   const [scanMessage, setScanMessage] = useState('Initializing camera...');
+  const [retryTrigger, setRetryTrigger] = useState(0);
 
   const captureFrame = () => {
     if (!videoRef.current || videoRef.current.videoWidth === 0) return null;
@@ -30,6 +31,7 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
   useEffect(() => {
     let scanInterval;
     let verifyTimeout;
+    let startTime;
 
     const triggerSuccess = () => {
       if (recognizedRef.current) return;
@@ -80,11 +82,23 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
         }
 
         setScanMessage('Look directly at the camera...');
+        startTime = Date.now();
 
         scanInterval = setInterval(async () => {
           if (recognizedRef.current) return;
           // Check video is ready
           if (!videoRef.current || videoRef.current.readyState < 2) return;
+
+          if (Date.now() - startTime > 30000) {
+            setPhase('failed');
+            setScanMessage("Face didn't match");
+            clearInterval(scanInterval);
+            if (streamRef.current) {
+              streamRef.current.getTracks().forEach(t => t.stop());
+              streamRef.current = null;
+            }
+            return;
+          }
 
           try {
             // Pass video element DIRECTLY to face-api — most reliable across all browsers/phones
@@ -100,7 +114,7 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
             if (result.match) {
               triggerSuccess();
             } else {
-              setScanMessage(`Scanning... (${result.confidence}% match needed: 45%)`);
+              setScanMessage('Scanning face...');
             }
           } catch (err) {
             console.error('[MarkAttendance] ML Error:', err);
@@ -125,7 +139,7 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
         streamRef.current = null;
       }
     };
-  }, [studentId, studentName, students]); // Re-run if student or profile changes
+  }, [studentId, studentName, students, retryTrigger]); // Re-run if student or profile changes, or retryTrigger increments
 
 
   return (
@@ -242,6 +256,25 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
           <p style={{ color: '#fff', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.5 }}>{scanMessage}</p>
         </div>
       )}
+      
+      {/* Failed Overlay */}
+      {phase === 'failed' && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'rgba(255,70,70,0.25)', backdropFilter: 'blur(4px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          padding: 24, textAlign: 'center',
+        }}>
+          <XCircle size={48} style={{ color: 'var(--accent-danger)', marginBottom: 12 }} />
+          <p style={{ color: '#fff', fontWeight: 700, fontSize: '1.2rem', lineHeight: 1.5, marginBottom: 16 }}>{scanMessage}</p>
+          <button className="btn btn-primary" onClick={() => {
+            recognizedRef.current = false;
+            setRetryTrigger(r => r + 1);
+          }}>
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Always-visible bottom status bar */}
       <div style={{
@@ -252,7 +285,7 @@ const LiveRecognitionCamera = ({ studentId, studentName, onRecognized }) => {
       }}>
         {phase === 'scanning' && <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2, flexShrink: 0 }} />}
         {phase === 'verified' && <CheckCircle size={14} style={{ color: 'var(--accent-primary)', flexShrink: 0 }} />}
-        {phase === 'error' && <XCircle size={14} style={{ color: 'var(--accent-danger)', flexShrink: 0 }} />}
+        {(phase === 'error' || phase === 'failed') && <XCircle size={14} style={{ color: 'var(--accent-danger)', flexShrink: 0 }} />}
         {phase === 'init' && <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2, flexShrink: 0 }} />}
         <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 600 }}>{scanMessage}</span>
       </div>
