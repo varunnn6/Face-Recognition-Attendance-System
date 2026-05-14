@@ -30,8 +30,19 @@ export function DataProvider({ children }) {
     setLoading(true);
     setError(null);
     try {
+      // Load each collection independently — if one fails (e.g. missing Firestore rule),
+      // the others still load. This prevents a single permission error from wiping all data.
+      const safeLoad = async (fn, fallback = []) => {
+        try { return await fn(); } catch (e) { console.warn('DataContext load error:', e.message); return fallback; }
+      };
+
       const [s, sub, str, fac, att, ses] = await Promise.all([
-        getStudents(), getSubjects(), getStreams(), getFaculty(), getAttendance(), getSessions(),
+        safeLoad(getStudents),
+        safeLoad(getSubjects),
+        safeLoad(getStreams),
+        safeLoad(getFaculty),
+        safeLoad(getAttendance),
+        safeLoad(getSessions),
       ]);
       setStudents(s);
       setSubjects(sub);
