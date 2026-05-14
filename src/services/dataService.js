@@ -89,7 +89,11 @@ export async function getSubjects() {
 }
 
 export async function addSubject(subject) {
-  const id = `SUB${Date.now()}`;
+  const id = subject.code?.toUpperCase().replace(/\s+/g, '') || `SUB${Date.now()}`;
+  const existing = await getDoc(doc(db, SUBJECTS_COL, id));
+  if (existing.exists()) {
+    throw new Error(`A subject with code "${id}" already exists. Use a unique code.`);
+  }
   await setDoc(doc(db, SUBJECTS_COL, id), { ...subject, id, createdAt: serverTimestamp() });
 }
 
